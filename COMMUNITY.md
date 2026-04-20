@@ -2,18 +2,6 @@
 
 A curated list of Agent Skills that work well alongside [Appstrate](https://appstrate.dev). Maintained via PRs — see [CONTRIBUTING.md](./CONTRIBUTING.md#1-link-your-skill-in-communitymd).
 
-## Appstrate-specific
-
-Skills that interact directly with Appstrate (call the REST API, author AFPS packages, drive the CLI).
-
-_Be the first. [Add yours.](./CONTRIBUTING.md#1-link-your-skill-in-communitymd)_
-
-## Complementary
-
-General-purpose skills that pair well when you ship Appstrate agents — commit writing, testing patterns, provider-specific helpers, etc.
-
-_Add one you use every day._
-
 ## Recommended skill collections
 
 We vetted the broader ecosystem. The repos below consistently publish high-quality skills and are worth installing alongside Appstrate.
