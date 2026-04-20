@@ -418,6 +418,7 @@ Cache flags: `--no-cache` (ephemeral), `--refresh` (force re-download).
 | HTML response instead of JSON | Missing `@` in scope, or missing `X-App-Id` on an app-scoped route | Use `@scope/name`; let `appstrate api` inject headers |
 | `Profile "<name>" not configured` | No `config.toml` entry for that profile | Run `appstrate login --profile <name>` |
 | Agent doesn't call `output` tool | Tool not in available tool list | Verify `dependencies.tools` in manifest, re-import |
+| CLI rejects a flag this skill documents (e.g. `unknown option '--foo'`) | Skill is older than the installed CLI version | Suggest the user updates this skill: `curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh \| bash -s appstrate --update` |
 
 ## References
 

@@ -23,6 +23,16 @@ curl -fsSL https://skills.appstrate.dev | bash -s appstrate --universal
 
 Prefer `git clone` directly? Skills are plain folders — see each skill's README below for the target path per agent.
 
+### Updating
+
+Skills evolve. Pull the latest version by re-running the installer with `--update`:
+
+```bash
+curl -fsSL https://skills.appstrate.dev | bash -s appstrate --update
+```
+
+The flag is an alias for `APPSTRATE_SKILLS_FORCE=1` — it overwrites the existing install instead of failing. Without `--update`, a fresh install into an existing directory errors out as a safety net.
+
 ## First-party skills
 
 | Skill | What it does |

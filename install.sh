@@ -8,6 +8,7 @@
 #   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name> --cursor
 #   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name> --antigravity
 #   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name> --universal
+#   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name> --update
 #
 # Without --<agent>, the installer auto-detects which agent is present on the
 # host and installs into its canonical skills directory. If multiple agents are
@@ -40,8 +41,14 @@ while [ "$#" -gt 0 ]; do
     --cursor)       TARGET_AGENT="cursor" ;;
     --antigravity)  TARGET_AGENT="antigravity" ;;
     --universal)    TARGET_AGENT="universal" ;;
+    --update|--upgrade)
+      # Idempotent re-install: pull latest skill from main and overwrite
+      # the existing directory. Equivalent to APPSTRATE_SKILLS_FORCE=1.
+      APPSTRATE_SKILLS_FORCE=1
+      export APPSTRATE_SKILLS_FORCE
+      ;;
     --help|-h)
-      sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     -*)
