@@ -65,10 +65,3 @@ The `description` field matters: that's what your agent reads to decide whether 
 ## Contributing
 
 See **[CONTRIBUTING.md](./CONTRIBUTING.md)** — two paths: add a first-party skill (PR a folder under `skills/`) or link your own repo (PR a line in `COMMUNITY.md`).
-
-## Related
-
-- [`anthropics/skills`](https://github.com/anthropics/skills) — Anthropic's official skills
-- [`VoltAgent/awesome-agent-skills`](https://github.com/VoltAgent/awesome-agent-skills) — 1000+ skills across every agent
-- [`travisvn/awesome-claude-skills`](https://github.com/travisvn/awesome-claude-skills) — Claude-focused curation
-- [`numman-ali/openskills`](https://github.com/numman-ali/openskills) — Universal skills loader (the `.agent/skills/` convention)
