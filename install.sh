@@ -130,11 +130,12 @@ case "$TARGET_AGENT" in
 esac
 
 if [ -e "$DEST" ]; then
-  echo "Destination exists: $DEST" >&2
-  echo "Remove it first or pass APPSTRATE_SKILLS_FORCE=1 to overwrite." >&2
   if [ "${APPSTRATE_SKILLS_FORCE:-}" != "1" ]; then
+    echo "Destination exists: $DEST" >&2
+    echo "Pass --update (or APPSTRATE_SKILLS_FORCE=1) to overwrite." >&2
     exit 3
   fi
+  echo "Updating existing install at $DEST …"
   rm -rf "$DEST"
 fi
 
