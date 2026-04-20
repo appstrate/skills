@@ -29,7 +29,7 @@ Agents are powered by the [Pi Coding Agent](https://github.com/nichochar/pi-codi
     │   └── member   (run agents, view results)     │
     │                                               │
     │   Access:                                     │
-    │   ├── UI       (app.appstrate.com)            │
+    │   ├── UI       (self-hosted dashboard)        │
     │   └── API key  (ask_* prefix, scoped)         │
     │                                               │
     │   All agents, skills, tools, providers,       │

@@ -2,7 +2,7 @@
 
 **For the complete endpoint list, use the live source:**
 - **CLI (recommended)**: `appstrate openapi list [--tag …] [--method …] [--search …]`
-- **Swagger UI**: `$APPSTRATE_URL/api/docs` (cloud: https://app.appstrate.com/api/docs)
+- **Swagger UI**: `$APPSTRATE_URL/api/docs`
 - **OpenAPI JSON**: `appstrate openapi export` or `GET /api/openapi.json`
 
 This file documents the conventions, gotchas, and non-obvious behaviors the Swagger doesn't surface.

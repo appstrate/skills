@@ -8,9 +8,7 @@ The fastest path is the `appstrate` CLI. It handles install, device-flow login (
 
 Pick one of:
 
-**A. Cloud (no install needed)** — use [app.appstrate.com](https://app.appstrate.com) directly. Skip to Step 2.
-
-**B. Self-host via the one-liner installer** — any host with Docker 20+ and Compose V2:
+**A. Self-host via the one-liner installer** — any host with Docker 20+ and Compose V2:
 
 ```bash
 curl -fsSL https://get.appstrate.dev | bash
@@ -18,7 +16,7 @@ curl -fsSL https://get.appstrate.dev | bash
 
 The installer generates secrets, picks a free port, downloads images, starts the stack, waits for health. Re-run to upgrade — existing secrets are preserved. Overrides: `APPSTRATE_VERSION=v1.2.3`, `APPSTRATE_DIR=~/.appstrate`, `APPSTRATE_PORT=8080`.
 
-**C. `appstrate install` (after installing the CLI binary)** — same result as the one-liner, but you control the flags:
+**B. `appstrate install` (after installing the CLI binary)** — same result as the one-liner, but you control the flags:
 
 ```bash
 appstrate install                      # interactive tier prompt (0/1/2/3)
@@ -49,7 +47,7 @@ appstrate login
 ```
 
 The CLI will:
-1. Prompt for the instance URL (cloud or your self-hosted URL, e.g. `http://localhost:3000`).
+1. Prompt for the instance URL (e.g. `http://localhost:3000` for local dev, or your production hostname).
 2. Open the browser to the device verification URL + print the user code.
 3. After you approve, store the JWT access + refresh pair in the OS keyring.
 4. Auto-pin an organization on the profile:
@@ -61,10 +59,10 @@ The CLI will:
 Non-interactive forms (CI / scripts / onboarding flows):
 
 ```bash
-appstrate login --instance https://app.appstrate.com \
-  --org tractr --app default
+appstrate login --instance https://appstrate.example.com \
+  --org my-org --app default
 
-appstrate login --instance https://app.appstrate.com \
+appstrate login --instance http://localhost:3000 \
   --create-org "My New Org" --create-app "Production"
 
 appstrate login --no-org --no-app    # skip pinning, use explicit headers later
@@ -83,10 +81,10 @@ That's it. Every subsequent `appstrate api …` call auto-injects the bearer tok
 
 ### Step 4 (multi-instance): named profiles
 
-If you pilot several instances (cloud + self-hosted + dev), create one profile per instance. The profile name is anything you like (conventionally `cloud`, `local`, `dev`):
+If you pilot several instances (prod + staging + dev), create one profile per instance. The profile name is anything you like (conventionally `prod`, `local`, `dev`):
 
 ```bash
-appstrate login --profile cloud --instance https://app.appstrate.com
+appstrate login --profile prod  --instance https://appstrate.example.com
 appstrate login --profile local --instance http://localhost:3000
 appstrate login --profile dev   --instance https://dev.appstrate.internal
 ```
@@ -100,15 +98,15 @@ Pick the active profile per-call with `-p, --profile`, via the `APPSTRATE_PROFIL
 When the CLI can't run (restricted CI image, third-party Docker container, legacy bash scripts), fall back to an API key + raw curl. Three env vars:
 
 ```bash
-APPSTRATE_URL=https://app.appstrate.com
+APPSTRATE_URL=https://appstrate.example.com        # your self-hosted URL
 APPSTRATE_API_KEY=ask_your_key_here
 APPSTRATE_ORG_ID=your-org-id-here
-APPSTRATE_APP_ID=your-app-id-here      # required on app-scoped routes
+APPSTRATE_APP_ID=your-app-id-here                  # required on app-scoped routes
 ```
 
 ### Create the API key
 
-1. Go to your instance UI (`app.appstrate.com` or your self-hosted URL) and sign in
+1. Open your instance UI (`$APPSTRATE_URL`) and sign in
 2. In the left sidebar, scroll to the **Application** section (bottom)
 3. Click **Cles API**
 4. Click the blue **Nouvelle cle API** button (top right)

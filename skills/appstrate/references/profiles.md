@@ -1,6 +1,6 @@
 # Profiles — Managing Multiple Appstrate Instances
 
-For users who pilot multiple Appstrate instances (cloud, self-hosted production, dev, per-project), the `appstrate` CLI uses **named profiles**. The profile name is free-form (conventionally `cloud`, `local`, `dev`); every command accepts `-p, --profile <name>` to target one.
+For users who pilot multiple Appstrate instances (production, staging, local dev, per-project), the `appstrate` CLI uses **named profiles**. The profile name is free-form (conventionally `prod`, `local`, `dev`); every command accepts `-p, --profile <name>` to target one.
 
 ## Storage layout
 
@@ -16,10 +16,10 @@ OS keyring                                    # secret: JWT access + refresh tok
 ### `config.toml` example
 
 ```toml
-defaultProfile = "cloud"
+defaultProfile = "prod"
 
-[profile.cloud]
-instance = "https://app.appstrate.com"
+[profile.prod]
+instance = "https://appstrate.example.com"
 userId = "usr_abc123"
 email = "olivier@tractr.net"
 orgId = "org_tractr"
@@ -60,7 +60,7 @@ If the resolved name has no matching `[profile.<name>]` section in `config.toml`
 ### First-time login to a new profile
 
 ```bash
-appstrate login --profile cloud --instance https://app.appstrate.com
+appstrate login --profile prod --instance https://appstrate.example.com
 appstrate login --profile local --instance http://localhost:3000
 appstrate login --profile dev   --instance https://dev.appstrate.internal
 ```
@@ -70,7 +70,7 @@ Each login creates the `[profile.<name>]` section + stores the token pair in the
 ### Change the default
 
 ```bash
-appstrate org switch <id-or-slug> --profile cloud   # re-pin org on 'cloud'
+appstrate org switch <id-or-slug> --profile prod   # re-pin org on 'prod'
 # (no standalone "set default profile" command yet — edit config.toml if needed)
 ```
 
@@ -79,10 +79,10 @@ To change `defaultProfile`, edit `~/.config/appstrate/config.toml` directly (it'
 ### Inspect profiles
 
 ```bash
-appstrate whoami --profile cloud                    # server identity on 'cloud'
-appstrate org current --profile cloud               # pinned org id
-appstrate app current --profile cloud               # pinned app id
-appstrate token --profile cloud                     # token metadata (exp, refresh)
+appstrate whoami --profile prod                    # server identity on 'prod'
+appstrate org current --profile prod               # pinned org id
+appstrate app current --profile prod               # pinned app id
+appstrate token --profile prod                     # token metadata (exp, refresh)
 
 # Raw view of all profiles:
 cat ~/.config/appstrate/config.toml
@@ -91,7 +91,7 @@ cat ~/.config/appstrate/config.toml
 ### Delete a profile
 
 ```bash
-appstrate logout --profile cloud
+appstrate logout --profile prod
 ```
 
 `logout` revokes the session server-side + wipes the keyring entry + removes the `[profile.<name>]` section from `config.toml`.
@@ -129,7 +129,7 @@ appstrate app switch <id>                  # re-pin on active profile
 appstrate app create "Production"          # creates + auto-pins
 
 # Scope to a specific profile with -p
-appstrate -p cloud app switch app_xyz
+appstrate -p prod app switch app_xyz
 ```
 
 All `{list,current,switch,create}` subcommands respect the global `-p, --profile` flag.
@@ -140,7 +140,7 @@ When the user mentions an instance by name or context, resolve to a profile:
 
 | User says | Profile to use |
 |---|---|
-| "on cloud", "en cloud", "on prod", "production", "appstrate.com" | `cloud` |
+| "on prod", "production", "staging" | `prod` |
 | "on local", "en local", "my self-hosted", "sur mon install", "localhost" | `local` |
 | "on dev", "dev instance", "appstrate-dev" | `dev` |
 | No mention | `defaultProfile` from `config.toml` (or `"default"`) |
@@ -171,7 +171,7 @@ Each invocation goes through the CLI, which picks the right bearer token + org/a
 1. **`APPSTRATE_PROFILE` beats `defaultProfile`** — if you export it for a quick test, remember to `unset APPSTRATE_PROFILE` after, or the override sticks across your whole session.
 2. **Profile file never contains secrets** — it's safe to `cat` or commit-scan. Tokens are in the keyring, not the file. Still, keep `~/.config/appstrate/` at `chmod 700` to hide profile names + org IDs.
 3. **Keyring entry orphans** — deleting `config.toml` manually leaves keyring entries behind. Use `appstrate logout --profile <name>` for a clean removal.
-4. **Cross-org within one instance** — each profile pins one `orgId`. To target a different org on the same URL, either `appstrate org switch <other>` (mutates the profile) or create a second profile (e.g., `cloud-tractr`, `cloud-lakaz`) via `appstrate login --profile cloud-lakaz`.
+4. **Cross-org within one instance** — each profile pins one `orgId`. To target a different org on the same URL, either `appstrate org switch <other>` (mutates the profile) or create a second profile (e.g., `prod-tractr`, `prod-lakaz`) via `appstrate login --profile prod-lakaz`.
 5. **Cross-app within one org** — same logic: `appstrate app switch <other>` mutates, or multi-profile for parallel targeting.
 6. **Stale tokens after server-side revocation** — if an admin revokes your session, the CLI will hit 401 and show a re-login hint. Run `appstrate login --profile <name>` to refresh.
 7. **`--no-org` / `--no-app` at login time** — skips pinning entirely. Every subsequent `appstrate api` call in that profile must pass the header manually: `appstrate -p dev api GET /api/agents -H 'X-Org-Id: …' -H 'X-App-Id: …'`. Usually only useful for multi-tenant admin tooling that switches context per-call.

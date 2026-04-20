@@ -1,13 +1,13 @@
 ---
 name: appstrate
-description: Create, deploy, run, and iterate on AI agents across one OR multiple Appstrate instances (cloud + self-hosted + dev) — open-source platform for one-shot AI workflows in ephemeral Docker containers. Primary entry point is the `appstrate` CLI (`appstrate install`, `appstrate login`, `appstrate api`, `appstrate org`, `appstrate app`, `appstrate openapi`). Supports named profiles (keyring-backed tokens + TOML config under `~/.config/appstrate/config.toml`) so the user pilots cloud, local, and dev from one session. Use when the user wants to create/edit an agent (manifest.json + prompt.md), import/deploy a .afps package, run an agent either as a persisted package or inline (no import, ephemeral shadow package), dry-run validate a manifest, monitor runs, list runs globally, manage skills/tools/providers, connect OAuth or API-key services, schedule agents, write prompts, switch between Appstrate instances, call the REST API through `appstrate api`, or explore the OpenAPI schema. Also triggers on mentions of AFPS, sidecar proxy, scoped packages, inline runs, POST /api/runs/inline, INLINE_RUN_LIMITS, APPSTRATE_PROFILE, "on cloud", "on local", "on dev", appstrate.com, or any `appstrate <command>` CLI invocation.
+description: Create, deploy, run, and iterate on AI agents across one OR multiple self-hosted Appstrate instances (prod + staging + dev) — open-source platform for one-shot AI workflows in ephemeral Docker containers. Primary entry point is the `appstrate` CLI (`appstrate install`, `appstrate login`, `appstrate api`, `appstrate org`, `appstrate app`, `appstrate openapi`). Supports named profiles (keyring-backed tokens + TOML config under `~/.config/appstrate/config.toml`) so the user pilots multiple instances from one session. Use when the user wants to create/edit an agent (manifest.json + prompt.md), import/deploy a .afps package, run an agent either as a persisted package or inline (no import, ephemeral shadow package), dry-run validate a manifest, monitor runs, list runs globally, manage skills/tools/providers, connect OAuth or API-key services, schedule agents, write prompts, switch between Appstrate instances, call the REST API through `appstrate api`, or explore the OpenAPI schema. Also triggers on mentions of AFPS, sidecar proxy, scoped packages, inline runs, POST /api/runs/inline, INLINE_RUN_LIMITS, APPSTRATE_PROFILE, "on prod", "on local", "on dev", self-hosted Appstrate, or any `appstrate <command>` CLI invocation.
 ---
 
 # Appstrate
 
-Manage AI agents on [appstrate.com](https://app.appstrate.com) and self-hosted instances via the `appstrate` CLI or the REST API. Everything is a **package** with a scoped name (`@scope/name`). Four types: `agent`, `skill`, `tool`, `provider`.
+Manage AI agents on self-hosted Appstrate instances via the `appstrate` CLI or the REST API. Everything is a **package** with a scoped name (`@scope/name`). Four types: `agent`, `skill`, `tool`, `provider`.
 
-- **API docs**: https://app.appstrate.com/api/docs (or `appstrate openapi list` for the active profile)
+- **API docs**: `$APPSTRATE_URL/api/docs` on your instance (or `appstrate openapi list` for the active profile)
 - **OpenAPI JSON**: `GET /api/openapi.json` (or `appstrate openapi export`)
 - **GitHub (open-source)**: https://github.com/appstrate/appstrate
 - **CLI source**: `apps/cli/` inside the monorepo
@@ -20,7 +20,7 @@ The **recommended path** is the `appstrate` CLI. It handles install (local or Do
 # One-liner install (Tier 0 = hobby / Bun, Tiers 1-3 = Docker stacks)
 curl -fsSL https://get.appstrate.dev | bash
 
-# Then sign in to your instance (cloud or local)
+# Then sign in to your instance
 appstrate login
 ```
 
@@ -28,7 +28,7 @@ appstrate login
 
 For first-time setup (choosing a tier, non-interactive flags, creating an API key for non-CLI callers, self-hosting): read `references/setup.md`.
 
-For multi-instance setups (cloud + self-hosted + dev): use named profiles via `--profile <name>`. Full guide: `references/profiles.md`.
+For multi-instance setups (prod + staging + dev): use named profiles via `--profile <name>`. Full guide: `references/profiles.md`.
 
 ### Call the API — two paths
 
@@ -68,7 +68,7 @@ Create the API key in the UI (left sidebar → Application → Cles API → Nouv
 The CLI keeps one profile per Appstrate instance you sign into. Switch with `-p` per-call, or re-pin the default:
 
 ```bash
-appstrate login --profile cloud      # first-time: creates the profile
+appstrate login --profile prod       # first-time: creates the profile
 appstrate login --profile local --instance http://localhost:3000
 
 appstrate whoami                     # who am I on the active profile
@@ -78,7 +78,7 @@ appstrate app list                   # apps in the pinned org
 appstrate app switch <id>            # re-pin app on the active profile
 ```
 
-**Inferring a profile from the prompt**: when the user says "on cloud" / "en prod" → use `cloud`; "on local" / "sur mon install" → use `local`; "on dev" → use `dev`. If the named profile doesn't exist, run `ls $(XDG_CONFIG_HOME:-~/.config)/appstrate/config.toml` to check, or call `appstrate whoami --profile <name>` (exit 1 if unconfigured) and ask the user to run `appstrate login --profile <name>` or pick an existing one.
+**Inferring a profile from the prompt**: when the user says "on prod" / "en prod" / "production" → use `prod`; "on local" / "sur mon install" → use `local`; "on dev" → use `dev`. If the named profile doesn't exist, run `ls $(XDG_CONFIG_HOME:-~/.config)/appstrate/config.toml` to check, or call `appstrate whoami --profile <name>` (exit 1 if unconfigured) and ask the user to run `appstrate login --profile <name>` or pick an existing one.
 
 Full profile guide, keyring/TOML layout, cross-instance iteration: `references/profiles.md`.
 
