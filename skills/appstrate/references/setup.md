@@ -25,6 +25,7 @@ appstrate install                      # interactive tier prompt (0/1/2/3)
 appstrate install -t 0                 # Tier 0 = hobby / Bun, zero-Docker
 appstrate install -t 3 --port 8080     # Tier 3 = full stack (Postgres+Redis+MinIO)
 appstrate install --yes                # skip all prompts, smart defaults (CI-friendly)
+appstrate install -t 0 --yes           # Tier 0, non-interactive, auto-pick free port
 ```
 
 Tiers:
@@ -34,6 +35,8 @@ Tiers:
 | 1 | PostgreSQL | Small prod |
 | 2 | PostgreSQL + Redis | Standard prod |
 | 3 | PostgreSQL + Redis + MinIO | Full prod (S3-style storage) |
+
+> **Rule for coding agents: always pass `--yes` in non-interactive contexts** (your Bash tool, CI, Dockerfile `RUN`, cloud-init). `--tier N` alone only skips the tier prompt — it still errors out with "port 3000 in use" if another process (typically the user's dev server or a previous install) is holding the port. `--yes` additionally enables auto-pick of the next free port (3001, 3002, …), Docker-aware tier defaults, and auto-start of the dev server. Combine them as `--tier N --yes` when you already know which tier the user wants, or just `--yes` when you can trust the Docker-aware default (Tier 3 if Docker is running, else Tier 0).
 
 Non-interactive flags for automation: `-y, --yes` (equivalent to `APPSTRATE_YES=1`), `-d, --dir`, `--port`, `--minio-console-port`, `--force`.
 

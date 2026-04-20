@@ -101,7 +101,8 @@ All curl examples below use `appstrate api` by default. If you need the raw-curl
 
 | Task | Action |
 |------|--------|
-| Install locally | `curl -fsSL https://get.appstrate.dev \| bash` or `appstrate install -t <0\|1\|2\|3>` |
+| Install locally (coding agent / CI) | `appstrate install -t <0\|1\|2\|3> --yes` — **always pass `--yes`** in non-interactive contexts (Bash tool, CI, Dockerfile). `--yes` alone uses Docker-aware defaults; `-t N --yes` pins the tier. Auto-picks the next free port on conflict (3001, 3002, …). `--tier` alone errors on port conflict. |
+| Install locally (interactive terminal) | `curl -fsSL https://get.appstrate.dev \| bash` or `appstrate install` — prompts for tier and port |
 | Sign in to an instance | `appstrate login [--instance <url>]` |
 | Check identity | `appstrate whoami` |
 | List orgs / switch / create | `appstrate org {list,current,switch,create}` |
