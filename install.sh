@@ -80,8 +80,11 @@ detect_agent() {
     return
   fi
 
-  # Single detection
-  if [ "$(echo "$found" | wc -w)" = "1" ]; then
+  # Single detection. Use numeric comparison because `wc -w` pads with
+  # leading whitespace on macOS, which would defeat a string compare.
+  local count
+  count=$(echo "$found" | wc -w)
+  if [ "$count" -eq 1 ]; then
     echo "$found"
     return
   fi
