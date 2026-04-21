@@ -9,16 +9,16 @@ Agent Skills for working with [Appstrate](https://appstrate.dev), the open-sourc
 Universal one-liner (auto-detects your coding agent and drops the skill in the right place):
 
 ```bash
-curl -fsSL https://skills.appstrate.dev | bash -s appstrate
+curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate
 ```
 
 Or pick your target explicitly:
 
 ```bash
-curl -fsSL https://skills.appstrate.dev | bash -s appstrate --claude
-curl -fsSL https://skills.appstrate.dev | bash -s appstrate --cursor
-curl -fsSL https://skills.appstrate.dev | bash -s appstrate --antigravity
-curl -fsSL https://skills.appstrate.dev | bash -s appstrate --universal
+curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --claude
+curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --cursor
+curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --antigravity
+curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --universal
 ```
 
 Prefer `git clone` directly? Skills are plain folders — see each skill's README below for the target path per agent.
@@ -28,7 +28,7 @@ Prefer `git clone` directly? Skills are plain folders — see each skill's READM
 Skills evolve. Pull the latest version by re-running the installer with `--update`:
 
 ```bash
-curl -fsSL https://skills.appstrate.dev | bash -s appstrate --update
+curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --update
 ```
 
 The flag is an alias for `APPSTRATE_SKILLS_FORCE=1` — it overwrites the existing install instead of failing. Without `--update`, a fresh install into an existing directory errors out as a safety net.

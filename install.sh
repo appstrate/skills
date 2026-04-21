@@ -3,12 +3,12 @@
 # Appstrate Skills installer.
 #
 # Usage:
-#   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name>
-#   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name> --claude
-#   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name> --cursor
-#   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name> --antigravity
-#   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name> --universal
-#   curl -fsSL https://skills.appstrate.dev | bash -s <skill-name> --update
+#   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name>
+#   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --claude
+#   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --cursor
+#   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --antigravity
+#   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --universal
+#   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --update
 #
 # Without --<agent>, the installer auto-detects which agent is present on the
 # host and installs into its canonical skills directory. If multiple agents are
@@ -31,7 +31,7 @@ TARGET_AGENT=""
 # --- Parse args ---
 if [ "$#" -eq 0 ]; then
   echo "Usage: install.sh <skill-name> [--claude|--cursor|--antigravity|--universal]" >&2
-  echo "Example: curl -fsSL https://skills.appstrate.dev | bash -s appstrate" >&2
+  echo "Example: curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate" >&2
   exit 1
 fi
 
