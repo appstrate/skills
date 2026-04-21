@@ -1,8 +1,10 @@
-# AFPS Manifest Schema Reference
+# AFPS Manifest Schema Reference (skill quick-ref)
 
-> AFPS (Agent Flow Packaging Standard) v1.0 — https://afps.appstrate.dev/
+> **Canonical spec**: AFPS (Agent Flow Packaging Standard) v1.0 is the open CC-BY format Appstrate uses. The authoritative schema + spec lives at [afps.appstrate.dev](https://afps.appstrate.dev). JSON Schema for validation: `https://afps.appstrate.dev/schema/v1/{type}.schema.json`. Appstrate-side overview: [appstrate.com/docs/resources/afps-specification](https://appstrate.com/docs/resources/afps-specification).
+>
+> This file is the **skill-local quick-ref** for writing manifests in-context without having to fetch the full JSON Schema. When in doubt, the afps.appstrate.dev schema wins.
 
-Every package has a `manifest.json`. Schema validation: `https://afps.appstrate.dev/schema/v1/{type}.schema.json`
+Every package has a `manifest.json`.
 
 ## Table of Contents
 

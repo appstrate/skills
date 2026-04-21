@@ -1,5 +1,7 @@
 # Profiles — Managing Multiple Appstrate Instances
 
+> **Canonical reference**: [/docs/using-appstrate/cli](https://appstrate.com/docs/using-appstrate/cli) covers the CLI itself (commands, flags, profile workflow). This file extends it with skill-specific operational knowledge: keyring/TOML layout, resolution order, prompt-to-profile inference, cross-profile iteration patterns — things a coding agent needs that aren't in the user-facing docs.
+
 ## Table of Contents
 
 - [Storage layout](#storage-layout)

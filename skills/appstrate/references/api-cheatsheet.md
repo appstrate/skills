@@ -1,42 +1,28 @@
-# Appstrate API — Conventions & Gotchas
+# Appstrate API — Cheatsheet (skill-local gotchas + pointers)
 
-## Table of Contents
+The public docs cover the API comprehensively. This file keeps only what a coding agent needs that isn't obvious from the reference docs: the `appstrate api` flag list, the non-obvious gotchas, and the quick error-resolution index.
 
-- [Auth](#auth)
-- [Scope prefix: `@` is mandatory](#scope-prefix--is-mandatory)
-- [Run lifecycle](#run-lifecycle)
-- [Package import](#package-import)
-- [Schedules](#schedules)
-- [Rate Limits](#rate-limits)
-- [Error Format](#error-format)
-- [Common pitfalls](#common-pitfalls)
+## Authoritative references (read these first)
 
-**For the complete endpoint list, use the live source:**
-- **CLI (recommended)**: `appstrate openapi list [--tag …] [--method …] [--search …]`
-- **Swagger UI**: `$APPSTRATE_URL/api/docs`
-- **OpenAPI JSON**: `appstrate openapi export` or `GET /api/openapi.json`
+- **Authentication** (API keys, sessions, OAuth, headers): [/docs/api/authentication](https://appstrate.com/docs/api/authentication)
+- **Error format** (RFC 9457 `application/problem+json`): [/docs/api/errors](https://appstrate.com/docs/api/errors)
+- **Idempotency** (`Idempotency-Key` header, 409/422 rules): [/docs/api/idempotency](https://appstrate.com/docs/api/idempotency)
+- **Webhooks** (HMAC, retries, Standard Webhooks spec): [/docs/api/webhooks-guide](https://appstrate.com/docs/api/webhooks-guide)
+- **Rate limits** (per-endpoint buckets): [/docs/self-hosting/rate-limits](https://appstrate.com/docs/self-hosting/rate-limits)
+- **Full endpoint list (live)**: `appstrate openapi list [--tag …] [--method …] [--search …]`, or `$APPSTRATE_URL/api/docs` (Swagger UI), or `appstrate openapi export -o openapi.json`
 
-This file documents the conventions, gotchas, and non-obvious behaviors the Swagger doesn't surface.
+## Preferred call path: `appstrate api`
 
-## Auth
-
-Preferred: call via **`appstrate api`** — the CLI injects `Authorization: Bearer <token>`, `X-Org-Id`, and `X-App-Id` from the active profile automatically.
+Always prefer `appstrate api` over raw curl: the CLI injects `Authorization: Bearer <token>`, `X-Org-Id`, and `X-App-Id` from the active profile. The agent never sees the raw token, never has to manage headers, never gets the scope-prefix HTML-200 bug (see below).
 
 ```bash
 appstrate api GET /api/agents
 appstrate api POST /api/agents/@scope/name/run -d '{"input":{"q":"…"}}'
+appstrate api /api/agents                                  # method inferred
+appstrate -p local api GET /api/agents                     # select profile
 ```
 
-Raw curl (fallback, for non-CLI environments) — every org-scoped request needs **three** headers:
-```
-Authorization: Bearer ask_…               # OR a device-flow JWT
-X-Org-Id: <org-id>
-X-App-Id: <application-id>                # required on app-scoped routes (most resource routes)
-```
-
-SSE realtime endpoints accept the API key via query param instead: `?token=ask_…`. With `appstrate api`, pass `-H 'Accept: text/event-stream'` and the CLI handles the bearer.
-
-### `appstrate api` flag reference (most common)
+### `appstrate api` flag reference (all common curl flags are supported)
 
 | Flag | Purpose |
 |---|---|
@@ -61,65 +47,26 @@ SSE realtime endpoints accept the API key via query param instead: `?token=ask_�
 | `--max-time N` | Abort after N seconds |
 | `--connect-timeout N` | Abort if headers don't arrive in N seconds |
 
-## Scope prefix: `@` is mandatory
+### SSE realtime
 
-All `{scope}/{name}` paths require the `@` prefix:
-- ✅ `@tractr/my-agent`
-- ❌ `tractr/my-agent` → SPA catch-all middleware returns HTML 200 (silent failure — see issue #215)
+SSE endpoints accept the key via query param (EventSource can't send custom headers): `?token=ask_…`. With `appstrate api`, pass `-H 'Accept: text/event-stream'` and the CLI handles the bearer.
 
-## Run lifecycle
+## Gotchas the reference docs don't make loud enough
 
-Statuses: `pending` → `running` → `success` | `failed` | `timeout` | `cancelled`
+1. **Scope prefix `@` is mandatory.** `GET /api/agents/tractr/my-agent` without the `@` is swallowed by the SPA catch-all middleware and returns HTML 200 (not JSON, not 404). Always write `@tractr/my-agent`. Issue #215.
+2. **API key auth needs NO `X-Org-Id` and NO `X-App-Id`.** A key is pinned to one org + one application; both are resolved from the key. Passing them is redundant and, for `X-App-Id` that conflicts with the key's pinned app, returns 400. See [/docs/api/authentication](https://appstrate.com/docs/api/authentication) §API keys.
+3. **Draft overwrite on import.** `POST /api/packages/import` returns 409 `DRAFT_OVERWRITE` when the package already has an unpublished draft. Add `-q force=true` to overwrite. Always prefer bumping the version instead.
+4. **Version param on runs.** Pin a specific version with `-q version=1.0.0`, or `-q version=latest` for the default dist-tag. Omit to use whichever version resolves for the caller's application.
+5. **`result: {}` on success.** The agent didn't call the `@appstrate/output` tool. Cause is always the same: `@appstrate/output` missing from `manifest.dependencies.tools`. Re-pack, re-import.
+6. **Inline run 422 `MISSING_TOOL` / `MISSING_SKILL`.** The catalog-side check rejects a dependency the org hasn't imported. Run `appstrate api GET /api/packages/tools` (or `…/skills`) to confirm availability. Issue #155 / #156.
+7. **HTML response on an app-scoped route.** Caused by: (a) missing `@` prefix in scope, or (b) raw curl without `X-App-Id` on a route that needs it (cookie auth only — API keys auto-resolve the app). Use `appstrate api` to avoid both.
+8. **401 after a week.** Device-flow JWT expired + refresh token rotated out. Re-run `appstrate login [--profile <name>]`.
+9. **403 after platform update.** API key predates a new scope. Create a fresh key in the UI, or re-run `appstrate login` if using a JWT.
+10. **SSE with API key.** Use `?token=ask_…`, NOT `Authorization: Bearer`. Cookies work for browser EventSource; API keys work for server-side.
+11. **`Profile "<name>" not configured`.** No `[profile.<name>]` entry in `config.toml`. Run `appstrate login --profile <name>`, or pick an existing profile.
 
-Run body (JSON): `{ input?, modelId?, proxyId? }`
-Run body (multipart): `{ input (JSON string), file }`
-Version param: `-q version=1.0.0` or `-q version=latest`
+## Run + schedule quick syntax (full spec in the docs)
 
-## Package import
-
-- `POST /api/packages/import` — upload .afps ZIP
-- 409 `DRAFT_OVERWRITE` → add `-q force=true` to overwrite draft
-- Updates require `lockVersion` field (409 on conflict)
-- GitHub import: `POST /api/packages/import-github`
-
-## Schedules
-
-Create body: `{ connectionProfileId*, cronExpression*, name?, timezone?, input? }`
-
-Common cron: `0 9 * * 1-5` (weekdays 9am), `0 */6 * * *` (every 6h), `0 0 * * 1` (weekly Monday).
-
-## Rate Limits
-
-| Endpoint | Limit |
-|----------|-------|
-| Agent run | 20/min |
-| Inline run + validate (shared bucket) | 60/min (via `INLINE_RUN_LIMITS`) |
-| Package import | 10/min |
-| Package download | 50/min |
-| Model/proxy/key test | 5/min |
-| OpenRouter search | 10/min |
-
-## Error Format
-
-RFC 7807: `{ type, title, status, detail }`
-
-| Status | Meaning |
-|--------|---------|
-| 400 | Validation error |
-| 401 | Auth missing or invalid — run `appstrate login` (or `appstrate login --profile <name>`) |
-| 403 | Insufficient permissions (check API key scopes) |
-| 404 | Not found (or missing `@` prefix — check scope) |
-| 409 | Conflict: draft overwrite or lockVersion mismatch |
-| 422 | Dependency resolution failed (inline runs — declared skill/tool/provider not in catalog) |
-| 429 | Rate limit exceeded |
-
-## Common pitfalls
-
-1. **`result: {}` on success** — `@appstrate/output` not in `dependencies.tools`. Add it to manifest.
-2. **401 after a week** — device-flow JWT expired + refresh token rotated out. Re-run `appstrate login --profile <name>`.
-3. **403 after platform update** — API key missing new scopes. Create a fresh key in the UI, or re-run `appstrate login` if using a JWT.
-4. **HTML response** — Missing `@` prefix on scope, OR hitting an app-scoped route without `X-App-Id`. Use `appstrate api` to avoid both.
-5. **Agent doesn't call output tool** — Tool not in manifest `dependencies.tools`. Re-import after fixing.
-6. **SSE doesn't connect with API key** — Use `?token=ask_…` query param, not Authorization header. With `appstrate api`, add `-H 'Accept: text/event-stream'`.
-7. **Inline run 422 `MISSING_TOOL` / `MISSING_SKILL`** — the catalog-side check rejects a dependency the org doesn't have. Run `appstrate api GET /api/packages/tools` (or `…/skills`) to confirm availability; see issue #155 (fixed #156).
-8. **`Profile "<name>" not configured`** — no `[profile.<name>]` in `config.toml`. Run `appstrate login --profile <name>`.
+- **Run a persisted agent**: `POST /api/agents/@scope/name/run`, body `{ input?, modelId?, proxyId? }` (JSON) or `{ input (JSON string), file }` (multipart). Lifecycle: `pending` → `running` → `success | failed | timeout | cancelled`. Full schema: [/docs/features/runs](https://appstrate.com/docs/features/runs).
+- **Inline run** (no import): `POST /api/runs/inline`. Full body schema + limits: `references/inline-runs.md`.
+- **Schedule**: `POST /api/agents/@scope/name/schedules`, body `{ name, cronExpression, timezone, connectionProfileId, input }`. Full spec + cron patterns: [/docs/features/scheduling](https://appstrate.com/docs/features/scheduling). Inline runs are NOT schedulable.

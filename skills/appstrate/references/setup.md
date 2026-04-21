@@ -1,4 +1,12 @@
-# Appstrate Setup Guide
+# Appstrate Setup Guide (edge cases)
+
+> **When to use this file.** The default setup path is documented directly in `SKILL.md`: the user runs `bunx appstrate install` (or `curl … | bash`) + `appstrate login` in their own terminal, and the agent verifies with `appstrate whoami`. **Only consult this reference when:**
+>
+> - The user explicitly delegates install to the agent (headless VM, CI runner, throwaway sandbox) AND accepts the Docker-aware default risk;
+> - You need the non-interactive flags (`-t N --yes`, `--port`, `--dir`) or the env vars (`APPSTRATE_NO_LAUNCH`, `APPSTRATE_VERSION`, `APPSTRATE_BIN_DIR`);
+> - The CLI isn't available at all and the caller has to fall back to API-key + raw curl.
+>
+> For the happy path (human at a terminal, picks Tier 0 interactively), go back to `SKILL.md` § Setup.
 
 ## Table of Contents
 
@@ -8,11 +16,6 @@
   - [Step 3: Verify](#step-3-verify)
   - [Step 4 (multi-instance): named profiles](#step-4-multi-instance-named-profiles)
 - [Fallback: API key for non-CLI environments](#fallback-api-key-for-non-cli-environments)
-  - [Create the API key](#create-the-api-key)
-  - [Get your Org ID and App ID](#get-your-org-id-and-app-id)
-  - [Verify](#verify-1)
-  - [Storage](#storage)
-  - [Migration path: API key → CLI](#migration-path-api-key--cli)
 
 The fastest path is the `appstrate` CLI. It handles install, device-flow login (RFC 8628), token storage in the OS keyring, and org+app pinning so every downstream call just works.
 
@@ -20,37 +23,78 @@ The fastest path is the `appstrate` CLI. It handles install, device-flow login (
 
 ### Step 1: Install Appstrate
 
-Pick one of:
+Tiers:
+| Tier | Runtime | Services | Storage | When |
+|---|---|---|---|---|
+| 0 | Bun | None (PGlite in-process) | Filesystem | Dev/hobby, zero-Docker |
+| 1 | Docker | PostgreSQL | Filesystem | Small prod |
+| 2 | Docker | PostgreSQL + Redis | Filesystem | Standard prod |
+| 3 | Docker | PostgreSQL + Redis + MinIO | S3 | Full prod |
 
-**A. Self-host via the one-liner installer** — any host with Docker 20+ and Compose V2:
+> ⚠️ **Tier default is context-dependent.** Interactive `appstrate install` defaults to **Tier 0**. Non-interactive paths (`--yes` alone, `curl … \| bash` piped into a non-TTY) use **Docker-aware defaults**: Tier 3 if `docker` is on PATH and the daemon responds, otherwise Tier 0. Coding agents run in the non-interactive bucket. Always pin the tier explicitly with `-t N --yes`.
+
+Pick one of four install paths:
+
+**A. `bunx appstrate install` (cleanest path for coding agents, requires Bun on PATH)** — no binary download, no minisign, tier explicit in one command:
+
+```bash
+bunx appstrate install -t 0 --yes
+bunx appstrate install -t 3 --port 8080 --yes
+```
+
+Install Bun first if needed: `curl -fsSL https://bun.sh/install | bash`.
+
+**B. One-liner with forwarded install flags** — single invocation, tier explicit:
+
+```bash
+curl -fsSL https://get.appstrate.dev | bash -s -- --tier 0 --yes
+curl -fsSL https://get.appstrate.dev | bash -s -- --tier 3 --port 8080 --yes
+```
+
+Anything after `-s --` is passed verbatim to the embedded `appstrate install`.
+
+**C. Two-step install (CLI first, then instance)** — use when you want the CLI binary on disk before deciding on tier:
+
+```bash
+APPSTRATE_NO_LAUNCH=1 curl -fsSL https://get.appstrate.dev | bash
+# CLI is at ~/.local/bin/appstrate. Make sure it is on PATH, then:
+appstrate install -t 0 --yes
+```
+
+**D. Interactive one-liner (for humans at a terminal, NOT for coding agents)**:
 
 ```bash
 curl -fsSL https://get.appstrate.dev | bash
 ```
 
-The installer generates secrets, picks a free port, downloads images, starts the stack, waits for health. Re-run to upgrade — existing secrets are preserved. Overrides: `APPSTRATE_VERSION=v1.2.3`, `APPSTRATE_DIR=~/.appstrate`, `APPSTRATE_PORT=8080`.
+Prompts for tier (defaults to Tier 0), then runs through install. Prompts are swallowed in non-TTY contexts, which is why paths A/B/C exist.
 
-**B. `appstrate install` (after installing the CLI binary)** — same result as the one-liner, but you control the flags:
+**One-liner env var overrides** (apply to paths B, C, D):
+- `APPSTRATE_VERSION=v1.2.3` — pin a release (default: latest pinned)
+- `APPSTRATE_BIN_DIR=/usr/local/bin` — install location (default: `$HOME/.local/bin`)
+- `APPSTRATE_NO_LAUNCH=1` — download CLI only, skip the embedded `appstrate install` (path C)
+- `APPSTRATE_NO_MODIFY_PATH=1` — don't touch shell rc files
+- `APPSTRATE_SKIP_VERIFY=1` — skip minisign + checksum verification (requires `CI=true`, not recommended)
 
-```bash
-appstrate install                      # interactive tier prompt (0/1/2/3)
-appstrate install -t 0                 # Tier 0 = hobby / Bun, zero-Docker
-appstrate install -t 3 --port 8080     # Tier 3 = full stack (Postgres+Redis+MinIO)
-appstrate install --yes                # skip all prompts, smart defaults (CI-friendly)
-appstrate install -t 0 --yes           # Tier 0, non-interactive, auto-pick free port
-```
+**`appstrate install` flags** (apply to paths A, B, C):
+- `-t, --tier <0|1|2|3>` — tier; REQUIRED for coding agents (see warning above)
+- `-y, --yes` — skip all prompts, auto-pick free ports (3001, 3002, …), auto-start dev server; equivalent to `APPSTRATE_YES=1`
+- `-d, --dir <path>` — install directory (default: `~/appstrate`)
+- `--port <n>` — primary HTTP port (default: 3000 with auto-bump on conflict when `--yes`)
+- `--minio-console-port <n>` — MinIO console port (Tier 3 only)
+- `--force` — overwrite existing install dir
 
-Tiers:
-| Tier | Stack | When |
-|---|---|---|
-| 0 | PGlite + filesystem + in-memory | Dev/hobby, no Docker |
-| 1 | PostgreSQL | Small prod |
-| 2 | PostgreSQL + Redis | Standard prod |
-| 3 | PostgreSQL + Redis + MinIO | Full prod (S3-style storage) |
+> **Prereq for paths B, C, D: `minisign`**. The installer verifies the CLI binary against a minisign signature before executing it, so `minisign` must be on `PATH`:
+> - macOS: `brew install minisign`
+> - Debian/Ubuntu: `sudo apt install minisign`
+> - Alpine: `apk add minisign`
+> - Other: https://jedisct1.github.io/minisign/
+>
+> Path A (`bunx appstrate install`) does not need minisign — it runs the CLI from the published npm package and skips the binary download.
+>
+> To bypass verification in a throwaway CI debug shell (not recommended), prefix with `APPSTRATE_SKIP_VERIFY=1` and set `CI=true`.
 
-> **Rule for coding agents: always pass `--yes` in non-interactive contexts** (your Bash tool, CI, Dockerfile `RUN`, cloud-init). `--tier N` alone only skips the tier prompt — it still errors out with "port 3000 in use" if another process (typically the user's dev server or a previous install) is holding the port. `--yes` additionally enables auto-pick of the next free port (3001, 3002, …), Docker-aware tier defaults, and auto-start of the dev server. Combine them as `--tier N --yes` when you already know which tier the user wants, or just `--yes` when you can trust the Docker-aware default (Tier 3 if Docker is running, else Tier 0).
-
-Non-interactive flags for automation: `-y, --yes` (equivalent to `APPSTRATE_YES=1`), `-d, --dir`, `--port`, `--minio-console-port`, `--force`.
+Re-run any install path to upgrade — existing secrets are preserved.
 
 For supply-chain verification (SLSA provenance via `gh attestation verify` or offline minisign signatures), see `examples/self-hosting/README.md` in the `appstrate/appstrate` repo.
 
@@ -109,56 +153,8 @@ Pick the active profile per-call with `-p, --profile`, via the `APPSTRATE_PROFIL
 
 ## Fallback: API key for non-CLI environments
 
-When the CLI can't run (restricted CI image, third-party Docker container, legacy bash scripts), fall back to an API key + raw curl. Three env vars:
+When the CLI can't run (restricted CI image, third-party container, legacy bash script), use an API key with raw curl. A key is pinned to a single org + application, so **you do not need `X-Org-Id` or `X-App-Id` headers** — the `Authorization: Bearer ask_...` header is sufficient.
 
-```bash
-APPSTRATE_URL=https://appstrate.example.com        # your self-hosted URL
-APPSTRATE_API_KEY=ask_your_key_here
-APPSTRATE_ORG_ID=your-org-id-here
-APPSTRATE_APP_ID=your-app-id-here                  # required on app-scoped routes
-```
-
-### Create the API key
-
-1. Open your instance UI (`$APPSTRATE_URL`) and sign in
-2. In the left sidebar, scroll to the **Application** section (bottom)
-3. Click **Cles API**
-4. Click the blue **Nouvelle cle API** button (top right)
-5. Fill the form:
-   - **Nom**: a label (e.g., `CI — deploy bot`)
-   - **Expire dans**: expiration delay (default 90 days)
-   - **Permissions**: `Tous les scopes` for full access, or narrow per-resource
-6. Click **Nouvelle cle API**
-7. **Copy the key immediately** — it starts with `ask_` and is shown only once
-
-### Get your Org ID and App ID
-
-```bash
-curl -s "$APPSTRATE_URL/api/orgs" \
-  -H "Authorization: Bearer $APPSTRATE_API_KEY"
-# → copy the `id` of the org you want
-
-curl -s "$APPSTRATE_URL/api/applications" \
-  -H "Authorization: Bearer $APPSTRATE_API_KEY" \
-  -H "X-Org-Id: $APPSTRATE_ORG_ID"
-# → copy the `id` of the app you want (usually the default one)
-```
-
-### Verify
-
-```bash
-curl -s "$APPSTRATE_URL/api/agents" \
-  -H "Authorization: Bearer $APPSTRATE_API_KEY" \
-  -H "X-Org-Id: $APPSTRATE_ORG_ID" \
-  -H "X-App-Id: $APPSTRATE_APP_ID" | head -c 200
-```
-
-### Storage
-
-- `.env` file in your project (works with any tool; **never commit this file**)
-- Shell profile env vars (`~/.zshrc`, `~/.bashrc`)
-- CI secret store (GitHub Actions secrets, GitLab CI variables, etc.)
-
-### Migration path: API key → CLI
-
-If a machine already has API-key env vars set and you want to adopt the CLI later, `appstrate login` happily coexists. The CLI always prefers its own keyring over the env vars — you can unset `APPSTRATE_URL` / `APPSTRATE_API_KEY` / `APPSTRATE_ORG_ID` / `APPSTRATE_APP_ID` once the CLI profile is configured.
+- **Authoritative reference**: [appstrate.com/docs/api/authentication](https://appstrate.com/docs/api/authentication) — prefix, scope matrix, SSE query-param, impersonation, errors.
+- **Live OpenAPI for your instance**: `$APPSTRATE_URL/api/docs` (Swagger UI) or `appstrate openapi list` / `appstrate openapi export`.
+- **Create the first key from the UI**: webapp → **Paramètres de l'organisation** → **Application** section → **Clés API** → **Nouvelle clé API**. The raw key is shown once, copy it immediately. Subsequent keys can be created via `POST /api/api-keys`.

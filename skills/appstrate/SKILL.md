@@ -1,6 +1,6 @@
 ---
 name: appstrate
-description: Create, deploy, run, and iterate on AI agents across one OR multiple self-hosted Appstrate instances (prod + staging + dev) — open-source platform for one-shot AI workflows in ephemeral Docker containers. Primary entry point is the `appstrate` CLI (`appstrate install`, `appstrate login`, `appstrate api`, `appstrate org`, `appstrate app`, `appstrate openapi`). Supports named profiles (keyring-backed tokens + TOML config under `~/.config/appstrate/config.toml`) so the user pilots multiple instances from one session. Use when the user wants to create/edit an agent (manifest.json + prompt.md), import/deploy a .afps package, run an agent either as a persisted package or inline (no import, ephemeral shadow package), dry-run validate a manifest, monitor runs, list runs globally, manage skills/tools/providers, connect OAuth or API-key services, schedule agents, write prompts, switch between Appstrate instances, call the REST API through `appstrate api`, or explore the OpenAPI schema. Also triggers on mentions of AFPS, sidecar proxy, scoped packages, inline runs, POST /api/runs/inline, INLINE_RUN_LIMITS, APPSTRATE_PROFILE, "on prod", "on local", "on dev", self-hosted Appstrate, or any `appstrate <command>` CLI invocation.
+description: Build, deploy, run, and iterate on AI agents on self-hosted Appstrate instances via the `appstrate` CLI and REST API. Use for writing or editing an agent (manifest.json + prompt.md), packaging as `.afps`, importing, running (persisted or inline/ephemeral), validating a manifest dry-run, monitoring runs, scheduling, managing skills/tools/providers, connecting OAuth or API-key services, switching between prod/staging/dev profiles, or calling `appstrate api` / exploring the OpenAPI schema. **Assumes `appstrate whoami` already succeeds** — the skill does NOT run `appstrate install` (install is a human decision, routed to manual terminal steps). Triggers on mentions of AFPS, sidecar proxy, scoped packages (`@scope/name`), inline runs (`/api/runs/inline`), `INLINE_RUN_LIMITS`, `APPSTRATE_PROFILE`, "on prod / local / dev", self-hosted Appstrate, or any `appstrate <command>` invocation.
 ---
 
 # Appstrate
@@ -14,19 +14,41 @@ Manage AI agents on self-hosted Appstrate instances via the `appstrate` CLI or t
 
 ## Setup
 
-The **recommended path** is the `appstrate` CLI. It handles install (local or Docker tiers), device-flow login (RFC 8628), token storage in the OS keyring, and pinning an org + application on the profile so every downstream call just works.
+Before doing anything else, verify the user already has a working Appstrate install:
 
 ```bash
-# One-liner install (Tier 0 = hobby / Bun, Tiers 1-3 = Docker stacks)
-curl -fsSL https://get.appstrate.dev | bash
+appstrate whoami
+```
 
-# Then sign in to your instance
+If that succeeds, skip to [API conventions](#api-conventions). If it fails (command not found, `Profile "default" not configured`, network error), the user hasn't installed yet — stop and walk them through the manual install below.
+
+### Manual install (instruct the user, do not run via Bash)
+
+Appstrate install is a human decision: tier, Docker-or-not, port, directory. **Do not execute `appstrate install` via your Bash tool.** Prompts don't work in a non-TTY shell, defaults flip to Docker-aware (Tier 3 instead of Tier 0), and the user loses control over their own infrastructure. Instead, ask the user to run these commands themselves in a terminal:
+
+```bash
+# If Bun is on PATH (fastest path, no binary download)
+bunx appstrate install
+
+# Otherwise (auto-installs Bun, verifies binary with minisign)
+curl -fsSL https://get.appstrate.dev | bash
+```
+
+Both prompt interactively for the tier (default **Tier 0** = Bun only, zero Docker) and pick a free port starting at 3000. The installer generates secrets, boots the stack, opens the webapp when healthy.
+
+Then sign in (also interactive — opens a browser for device-flow approval):
+
+```bash
 appstrate login
 ```
 
-`appstrate login` walks through instance URL → device code → browser approval → org pin → app pin. On a single-org account, everything is auto-picked. On a multi-org account, a picker is shown.
+Re-run `appstrate whoami` from your Bash tool to confirm. When it returns the user's identity + pinned org + pinned app, setup is done.
 
-For first-time setup (choosing a tier, non-interactive flags, creating an API key for non-CLI callers, self-hosting): read `references/setup.md`.
+> **Minisign prerequisite** for the `curl | bash` path: `brew install minisign` (macOS), `sudo apt install minisign` (Debian/Ubuntu), `apk add minisign` (Alpine). The `bunx` path skips this entirely.
+
+> **If the user has no LLM key connected**, agent runs will fail at dispatch. Tell them to open the webapp at `http://localhost:3000` → Settings → Models → Add a model. The skill cannot add API keys for them (no public endpoint for it).
+
+For edge cases the skill does NOT cover by default (headless CI, agent-delegated install, tier upgrades, non-interactive flags, API-key fallback for environments without the CLI): `references/setup.md`.
 
 For multi-instance setups (prod + staging + dev): use named profiles via `--profile <name>`. Full guide: `references/profiles.md`.
 
@@ -49,38 +71,22 @@ appstrate -p local api GET /api/agents
 APPSTRATE_PROFILE=local appstrate api GET /api/agents
 ```
 
-**Fallback (legacy, or for non-CLI environments like CI without the binary): raw curl with an API key**
+**Fallback (legacy, or for non-CLI environments): raw curl with an API key**
 
-Some environments don't have the CLI installed (old CI images, restricted Docker containers, third-party scripts). In that case, fall back to an API key and raw curl:
+When the CLI can't run (old CI images, restricted containers, third-party scripts), use an API key. A key is pinned to one org + one application, so the bearer header is the only auth needed — no `X-Org-Id`, no `X-App-Id`:
 
 ```bash
-# Requires APPSTRATE_URL, APPSTRATE_API_KEY (ask_…), APPSTRATE_ORG_ID, optionally APPSTRATE_APP_ID
 curl -s "$APPSTRATE_URL/api/agents" \
-  -H "Authorization: Bearer $APPSTRATE_API_KEY" \
-  -H "X-Org-Id: $APPSTRATE_ORG_ID" \
-  -H "X-App-Id: $APPSTRATE_APP_ID"
+  -H "Authorization: Bearer $APPSTRATE_API_KEY"
 ```
 
-Create the API key in the UI (left sidebar → Application → Cles API → Nouvelle cle API). See `references/setup.md` > "Fallback: API key for non-CLI environments".
+Authoritative reference (scope matrix, impersonation, SSE query-param, errors): [appstrate.com/docs/api/authentication](https://appstrate.com/docs/api/authentication). First key is created from the webapp: **Paramètres de l'organisation → Application → Clés API → Nouvelle clé API** (shown once).
 
 ## Profile management
 
-The CLI keeps one profile per Appstrate instance you sign into. Switch with `-p` per-call, or re-pin the default:
+One profile per Appstrate instance, selected with `-p, --profile <name>`. Commands reference: [/docs/using-appstrate/cli#profile-workflow](https://appstrate.com/docs/using-appstrate/cli#profile-workflow). Keyring/TOML layout, cross-instance iteration, gotchas: `references/profiles.md`.
 
-```bash
-appstrate login --profile prod       # first-time: creates the profile
-appstrate login --profile local --instance http://localhost:3000
-
-appstrate whoami                     # who am I on the active profile
-appstrate org list                   # orgs the active profile can see
-appstrate org switch <id-or-slug>    # re-pin org on the active profile
-appstrate app list                   # apps in the pinned org
-appstrate app switch <id>            # re-pin app on the active profile
-```
-
-**Inferring a profile from the prompt**: when the user says "on prod" / "en prod" / "production" → use `prod`; "on local" / "sur mon install" → use `local`; "on dev" → use `dev`. If the named profile doesn't exist, run `ls $(XDG_CONFIG_HOME:-~/.config)/appstrate/config.toml` to check, or call `appstrate whoami --profile <name>` (exit 1 if unconfigured) and ask the user to run `appstrate login --profile <name>` or pick an existing one.
-
-Full profile guide, keyring/TOML layout, cross-instance iteration: `references/profiles.md`.
+**Infer profile from the user prompt**: "on prod" / "production" → `prod`; "on local" / "sur mon install" / "localhost" → `local`; "on dev" → `dev`; no mention → active default. If the inferred profile is not configured, run `appstrate whoami --profile <name>` (exit 1) and ask the user to run `appstrate login --profile <name>` rather than guessing.
 
 ## API Conventions
 
@@ -101,8 +107,7 @@ All curl examples below use `appstrate api` by default. If you need the raw-curl
 
 | Task | Action |
 |------|--------|
-| Install locally (coding agent / CI) | `appstrate install -t <0\|1\|2\|3> --yes` — **always pass `--yes`** in non-interactive contexts (Bash tool, CI, Dockerfile). `--yes` alone uses Docker-aware defaults; `-t N --yes` pins the tier. Auto-picks the next free port on conflict (3001, 3002, …). `--tier` alone errors on port conflict. |
-| Install locally (interactive terminal) | `curl -fsSL https://get.appstrate.dev \| bash` or `appstrate install` — prompts for tier and port |
+| Install Appstrate | **Don't run via Bash.** Tell the user to run `bunx appstrate install` (or `curl -fsSL https://get.appstrate.dev \| bash` if no Bun) in their own terminal, then `appstrate login`. Verify with `appstrate whoami` from your Bash tool. |
 | Sign in to an instance | `appstrate login [--instance <url>]` |
 | Check identity | `appstrate whoami` |
 | List orgs / switch / create | `appstrate org {list,current,switch,create}` |
@@ -130,132 +135,15 @@ For API conventions, gotchas, and rate limits: `references/api-cheatsheet.md`. F
 
 ## Create an Agent
 
-### 0. Discover available resources
+Five-step workflow. Full detail (code templates, manifest field rules, prompt structure, post-import configure commands): `references/create-agent.md`.
 
-Before writing the manifest, check what's available in the org:
+1. **Discover available resources** — list system tools, skills, providers, existing agent names: `appstrate api GET /api/packages/tools` (+ `/skills`, `/api/providers`, `/api/agents`).
+2. **Write `manifest.json`** — start from `assets/agent-manifest.json`. Critical: `name` is `@scope/name`, every dependency declared explicitly (nothing auto-enabled), `required` is a top-level array. Schema details: `references/manifest-schema.md`. Tools decision guide: `references/system-tools.md`.
+3. **Write `prompt.md`** — plain Markdown, no template syntax. Platform auto-injects User Input, Configuration, Previous State, Memory, Tools, Skills, Providers, Output Format — do not repeat them. Guidance: `references/prompt-writing.md`.
+4. **Package as .afps** — `bash scripts/afps-pack.sh /path/to/agent-dir /tmp/my-agent.afps`. The `.afps` is a ZIP with `manifest.json` at root.
+5. **Import** — `appstrate api POST /api/packages/import -F file=@/tmp/my-agent.afps`. On 409 `DRAFT_OVERWRITE`, bump the version (preferred) or add `-q force=true`.
 
-```bash
-# System tools (output, set-state, report, log, add-memory)
-appstrate api GET /api/packages/tools
-
-# Skills (knowledge packages to attach)
-appstrate api GET /api/packages/skills
-
-# Providers (OAuth/API-key services to connect)
-appstrate api GET /api/providers
-
-# Existing agents (avoid name collisions)
-appstrate api GET /api/agents
-```
-
-Use these results to choose the right `dependencies.tools`, `dependencies.skills`, and `dependencies.providers` for the manifest. For system tools details and decision guide: `references/system-tools.md`.
-
-### 1. Write manifest.json
-
-Use the template at `templates/agent-manifest.json`. Key fields:
-
-```json
-{
-  "name": "@my-org/my-agent",
-  "version": "1.0.0",
-  "type": "agent",
-  "schemaVersion": "1.0",
-  "displayName": "My Agent",
-  "description": "What it does",
-  "author": "Author",
-  "dependencies": {
-    "providers": { "@appstrate/gmail": "^1.0.0" },
-    "tools": { "@appstrate/output": "^1.0.0" },
-    "skills": {}
-  },
-  "providersConfiguration": {
-    "@appstrate/gmail": {
-      "scopes": ["https://www.googleapis.com/auth/gmail.modify"],
-      "connectionMode": "user"
-    }
-  },
-  "input": { "schema": { "type": "object", "properties": {}, "required": [] } },
-  "output": { "schema": { "type": "object", "properties": { "summary": { "type": "string" } }, "required": ["summary"] } },
-  "timeout": 300
-}
-```
-
-Critical rules:
-- `name` MUST be `@scope/name` format (lowercase, hyphens OK)
-- `type` is `"agent"`
-- `dependencies.tools` — system tools are NOT auto-enabled. Declare each tool the agent needs (see `references/system-tools.md` for the decision guide)
-- `dependencies.providers` is `Record<string, semverRange>` (NOT an array)
-- `required` is a top-level array (NOT `required: true` on properties)
-- `connectionMode`: `"user"` (each user connects) or `"admin"` (shared creds)
-
-For the full manifest schema: `references/manifest-schema.md`.
-
-### 2. Write prompt.md
-
-The agent prompt. Plain Markdown, no template syntax. The platform auto-injects: User Input, Configuration, Previous State, Memory, Tools, Skills, Connected Providers, Output Format.
-
-```markdown
-# Objective
-
-One clear sentence.
-
-# Steps
-
-1. **Fetch data** — Use sidecar proxy for authenticated calls:
-   curl -s "$SIDECAR_URL/proxy" \
-     -H "X-Provider: @appstrate/gmail" \
-     -H "X-Target: https://gmail.googleapis.com/gmail/v1/users/me/messages" \
-     -H "Authorization: Bearer {{access_token}}"
-2. **Process** — Transform, filter, summarize
-3. **Return results** as JSON matching the output schema
-```
-
-Key rules:
-- Sidecar proxy: `$SIDECAR_URL/proxy` + `X-Provider` + `X-Target` headers
-- Credential placeholders: `{{access_token}}` (OAuth2), `{{apiKey}}` (API key), `{{fieldName}}` (custom)
-- Public APIs: call directly with curl, no sidecar needed
-- Do NOT repeat injected sections (User Input, Config, etc.)
-- If `@appstrate/output` is in dependencies, instruct the agent to call the `output` tool to return structured results
-
-For detailed prompt guidance: `references/prompt-writing.md`.
-
-### 3. Package as .afps
-
-```bash
-bash scripts/afps-pack.sh /path/to/agent-dir /tmp/my-agent.afps
-```
-
-The .afps is a ZIP with manifest.json at root (not nested). Manual alternative:
-```bash
-cd "$AGENT_DIR" && zip -r /tmp/my-agent.afps manifest.json prompt.md
-```
-
-### 4. Import
-
-```bash
-appstrate api POST /api/packages/import -F file=@/tmp/my-agent.afps
-```
-
-If 409 `DRAFT_OVERWRITE`: add `-q force=true` to overwrite the draft.
-
-### 5. Configure (optional post-import)
-
-```bash
-# Attach skills
-appstrate api PUT /api/agents/@scope/name/skills \
-  -H 'Content-Type: application/json' \
-  -d '{"skillIds": ["@scope/skill1"]}'
-
-# Set config values
-appstrate api PUT /api/agents/@scope/name/config \
-  -H 'Content-Type: application/json' \
-  -d '{"language": "fr"}'
-
-# Override LLM model
-appstrate api PUT /api/agents/@scope/name/model \
-  -H 'Content-Type: application/json' \
-  -d '{"modelId": "claude-sonnet-4-20250514"}'
-```
+Optional post-import: attach skills, set config values, override LLM model (see `references/create-agent.md` §Step 5).
 
 ## Run an Agent
 
@@ -318,59 +206,53 @@ Same version + `-q force=true` overwrites the draft (no version history). Always
 
 ## Schedule an Agent
 
-`POST /api/agents/@scope/name/schedules` with `{ name, cronExpression, timezone, connectionProfileId, input }`. Inline runs are NOT schedulable (schedules require a persisted package). Body fields + common cron patterns: `references/api-cheatsheet.md` > "Schedules".
+`POST /api/agents/@scope/name/schedules` with `{ name, cronExpression, timezone, connectionProfileId, input }`. Inline runs are NOT schedulable (schedules require a persisted package). Full body spec, cron patterns, worker rate limits: [/docs/features/scheduling](https://appstrate.com/docs/features/scheduling).
 
 ## Create a Skill
 
-A **skill** is a Markdown knowledge package that the agent reads at runtime. No code. Files:
+A **skill** is a Markdown knowledge package the agent reads at runtime (no code execution). Full concept + lifecycle: [/docs/features/skills](https://appstrate.com/docs/features/skills). Files:
 
 ```
-manifest.json    # type: "skill" — start from templates/skill-manifest.json
+manifest.json    # type: "skill" — start from assets/skill-manifest.json
 SKILL.md         # YAML frontmatter + Markdown body (the knowledge the agent consumes)
 scripts/         # Optional — bundled helper scripts
 references/      # Optional — extra Markdown docs the agent can load on demand
 ```
 
-Pack + import the same way as an agent:
+Pack + import like an agent:
 ```bash
 bash scripts/afps-pack.sh /path/to/skill-dir /tmp/my-skill.afps
 appstrate api POST /api/packages/import -F file=@/tmp/my-skill.afps
 ```
 
-Full field list: `references/manifest-schema.md` > "Skill Fields".
+Manifest field list: `references/manifest-schema.md` > "Skill Fields".
 
 ## Create a Tool
 
-A **tool** is an **executable TypeScript extension** the agent invokes as a function. This is real code compiled into the agent's runtime, not Markdown. Files:
+A **tool** is an **executable TypeScript extension** the agent invokes as a function. Full concept + sandbox model: [/docs/features/tools](https://appstrate.com/docs/features/tools). Files:
 
 ```
-manifest.json    # type: "tool" — start from templates/tool-manifest.json
+manifest.json    # type: "tool" — start from assets/tool-manifest.json
 index.ts         # Tool implementation
 ```
 
-Non-obvious requirements:
+Non-obvious skill-side requirements:
 - `manifest.entrypoint` must point to `index.ts` (or your compiled output).
 - `manifest.tool.inputSchema` is a **JSON Schema** validated by the runtime before calling the tool.
-- `index.ts` must implement the execute signature from `@mariozechner/pi-coding-agent` (the SDK the agent runtime uses). Install as a dev dependency: `bun add -d @mariozechner/pi-coding-agent`.
-- The tool runs inside the agent's sandbox container, so it can use `fetch`, file system, etc. — but has no access to the caller's keyring or shell env.
+- `index.ts` must implement the execute signature from `@mariozechner/pi-coding-agent`. Install as a dev dependency: `bun add -d @mariozechner/pi-coding-agent`. Signature: `(toolCallId, params, signal)` — `params` is the **second** arg, not the first. Return type: `{ content: [{ type: "text", text: "..." }] }`, NOT a plain string.
+- The tool runs inside the agent's sandbox container with `fetch` + filesystem access, but has no access to the caller's keyring or shell env.
 
-Pack + import the same way:
+Pack + import:
 ```bash
 bash scripts/afps-pack.sh /path/to/tool-dir /tmp/my-tool.afps
 appstrate api POST /api/packages/import -F file=@/tmp/my-tool.afps
 ```
 
-Full field list + execute signature + return format: `references/manifest-schema.md` > "Tool Fields".
+Manifest field list + execute signature + return format: `references/manifest-schema.md` > "Tool Fields".
 
 ## Data Model: input vs config vs state vs memory vs output
 
-| Mechanism | Changes each run? | Who sets it? | Persists? | Use for |
-|-----------|:-:|:-:|:-:|---------|
-| **input** | Yes | End user | No | Runtime params: query, date range, file |
-| **config** | Rarely | Admin | Yes | Setup-once: language, max items |
-| **output** | Yes | Agent | No | Structured results for the user |
-| **state** | Yes | Agent | Yes (overwritten) | Cursor, last sync timestamp |
-| **memory** | Yes | Agent | Yes (appended) | Learned preferences, patterns |
+Five distinct mechanisms, different persistence semantics. Full conceptual breakdown + examples: `references/concepts.md` (skill-local) and [/docs/features/memory](https://appstrate.com/docs/features/memory) + [/docs/features/runs](https://appstrate.com/docs/features/runs).
 
 ## Common Errors
 
@@ -386,14 +268,28 @@ Full field list + execute signature + return format: `references/manifest-schema
 
 ## References
 
+**Canonical public docs** (always authoritative, check these first for anything the skill doesn't cover):
+
+- Platform concepts: [/docs/get-started/concepts](https://appstrate.com/docs/get-started/concepts) + [/docs/features/*](https://appstrate.com/docs/features/agents)
+- API authentication: [/docs/api/authentication](https://appstrate.com/docs/api/authentication)
+- Error format (RFC 9457): [/docs/api/errors](https://appstrate.com/docs/api/errors)
+- Idempotency: [/docs/api/idempotency](https://appstrate.com/docs/api/idempotency)
+- Webhooks: [/docs/api/webhooks-guide](https://appstrate.com/docs/api/webhooks-guide)
+- Rate limits: [/docs/self-hosting/rate-limits](https://appstrate.com/docs/self-hosting/rate-limits)
+- CLI reference: [/docs/using-appstrate/cli](https://appstrate.com/docs/using-appstrate/cli)
+- AFPS spec (open standard): [afps.appstrate.dev](https://afps.appstrate.dev)
+- Live OpenAPI for your instance: `$APPSTRATE_URL/api/docs` or `appstrate openapi list`
+
+**Skill-local references** (quick-refs + operational knowledge not in the public docs):
+
 | Need | File |
 |------|------|
-| Platform concepts (visual overview) | `references/concepts.md` |
-| Full manifest schema (all 4 types) | `references/manifest-schema.md` |
+| Full 5-step Create an Agent workflow (code, rules, post-import) | `references/create-agent.md` |
+| Platform concepts quick-ref (+ pointers to all features pages) | `references/concepts.md` |
+| Manifest schema quick-ref (+ pointer to AFPS spec) | `references/manifest-schema.md` |
 | Writing effective prompts | `references/prompt-writing.md` |
-| System tools (output, state, report, etc.) | `references/system-tools.md` |
-| API conventions & gotchas | `references/api-cheatsheet.md` |
+| System tools decision guide (output, state, report, etc.) | `references/system-tools.md` |
+| API cheatsheet: `appstrate api` flags + skill-specific gotchas | `references/api-cheatsheet.md` |
 | Inline runs (endpoints, limits, compaction, gotchas) | `references/inline-runs.md` |
 | Multi-instance profiles (keyring + TOML, `--profile`, `appstrate org/app`) | `references/profiles.md` |
-| Full endpoint list (live) | `appstrate openapi list` or `GET /api/openapi.json` |
-| Step-by-step setup guide (CLI + API-key fallback) | `references/setup.md` |
+| Setup edge cases (headless CI, agent-delegated install, API-key fallback) | `references/setup.md` |
