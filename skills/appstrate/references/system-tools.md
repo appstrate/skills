@@ -6,13 +6,13 @@ System tools are platform-provided tools that agents can use at runtime. They ar
 
 List available tools in the org:
 ```bash
-curl "$APPSTRATE_URL/api/packages/tools"
+appstrate api GET /api/packages/tools
 ```
 
 Activate tools for an existing agent via API:
 ```bash
-curl -X PUT "$APPSTRATE_URL/api/agents/@scope/name/tools" \
-  -H "Content-Type: application/json" \
+appstrate api PUT /api/agents/@scope/name/tools \
+  -H 'Content-Type: application/json' \
   -d '{"toolIds": ["@appstrate/output", "@appstrate/set-state"]}'
 ```
 

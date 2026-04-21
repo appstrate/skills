@@ -1,5 +1,19 @@
 # Appstrate Setup Guide
 
+## Table of Contents
+
+- [Primary path: CLI](#primary-path-cli)
+  - [Step 1: Install Appstrate](#step-1-install-appstrate)
+  - [Step 2: Sign in](#step-2-sign-in)
+  - [Step 3: Verify](#step-3-verify)
+  - [Step 4 (multi-instance): named profiles](#step-4-multi-instance-named-profiles)
+- [Fallback: API key for non-CLI environments](#fallback-api-key-for-non-cli-environments)
+  - [Create the API key](#create-the-api-key)
+  - [Get your Org ID and App ID](#get-your-org-id-and-app-id)
+  - [Verify](#verify-1)
+  - [Storage](#storage)
+  - [Migration path: API key → CLI](#migration-path-api-key--cli)
+
 The fastest path is the `appstrate` CLI. It handles install, device-flow login (RFC 8628), token storage in the OS keyring, and org+app pinning so every downstream call just works.
 
 ## Primary path: CLI

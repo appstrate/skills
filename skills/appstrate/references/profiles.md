@@ -1,5 +1,16 @@
 # Profiles — Managing Multiple Appstrate Instances
 
+## Table of Contents
+
+- [Storage layout](#storage-layout)
+- [Profile resolution order](#profile-resolution-order)
+- [Creating and switching profiles](#creating-and-switching-profiles)
+- [Selecting a profile per-call](#selecting-a-profile-per-call)
+- [Re-pinning org or app on an existing profile](#re-pinning-org-or-app-on-an-existing-profile)
+- [Inferring a profile from the user prompt](#inferring-a-profile-from-the-user-prompt)
+- [Cross-profile operations](#cross-profile-operations)
+- [Gotchas](#gotchas)
+
 For users who pilot multiple Appstrate instances (production, staging, local dev, per-project), the `appstrate` CLI uses **named profiles**. The profile name is free-form (conventionally `prod`, `local`, `dev`); every command accepts `-p, --profile <name>` to target one.
 
 ## Storage layout

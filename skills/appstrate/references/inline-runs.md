@@ -1,5 +1,17 @@
 # Inline Runs
 
+## Table of Contents
+
+- [Execute](#execute)
+- [Dry-run validation](#dry-run-validation)
+- [Ephemeral shadow packages](#ephemeral-shadow-packages)
+- [Daily compaction](#daily-compaction)
+- [Config snapshot (applies to ALL runs, inline + classic)](#config-snapshot-applies-to-all-runs-inline--classic)
+- [Global run list](#global-run-list)
+- [Environment limits: `INLINE_RUN_LIMITS`](#environment-limits-inline_run_limits)
+- [When to use inline vs package import](#when-to-use-inline-vs-package-import)
+- [Gotchas](#gotchas)
+
 Run an agent defined entirely in the request body — no `.afps` import, no package lifecycle, no version history. The platform creates an **ephemeral shadow package** (`ephemeral = true`, scope `@inline/r-<uuid>`), runs it through the standard pipeline, and compacts the manifest/prompt after 24h (configurable). Perfect for one-shot agents, rapid iteration, or integrating Appstrate as an LLM backend.
 
 Two endpoints:
@@ -9,10 +21,8 @@ Two endpoints:
 ## Execute
 
 ```bash
-curl -X POST "$APPSTRATE_URL/api/runs/inline" \
-  -H "Authorization: Bearer $APPSTRATE_API_KEY" \
-  -H "X-Org-Id: $APPSTRATE_ORG_ID" \
-  -H "Content-Type: application/json" \
+appstrate api POST /api/runs/inline \
+  -H 'Content-Type: application/json' \
   -d '{
     "manifest": {
       "$schema": "https://afps.appstrate.dev/schema/v1/agent.schema.json",
@@ -65,10 +75,8 @@ Stream progress: `GET /api/realtime/runs/{runId}` (SSE). Or poll `GET /api/runs/
 Same body, no side effects. Lets you iterate on a manifest without burning runs or leaving phantom rows.
 
 ```bash
-curl -X POST "$APPSTRATE_URL/api/runs/inline/validate" \
-  -H "Authorization: Bearer $APPSTRATE_API_KEY" \
-  -H "X-Org-Id: $APPSTRATE_ORG_ID" \
-  -H "Content-Type: application/json" \
+appstrate api POST /api/runs/inline/validate \
+  -H 'Content-Type: application/json' \
   -d '{ "manifest": {...}, "prompt": "...", "input": {...}, "config": {...} }'
 ```
 

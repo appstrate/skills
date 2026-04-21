@@ -1,5 +1,16 @@
 # Appstrate API — Conventions & Gotchas
 
+## Table of Contents
+
+- [Auth](#auth)
+- [Scope prefix: `@` is mandatory](#scope-prefix--is-mandatory)
+- [Run lifecycle](#run-lifecycle)
+- [Package import](#package-import)
+- [Schedules](#schedules)
+- [Rate Limits](#rate-limits)
+- [Error Format](#error-format)
+- [Common pitfalls](#common-pitfalls)
+
 **For the complete endpoint list, use the live source:**
 - **CLI (recommended)**: `appstrate openapi list [--tag …] [--method …] [--search …]`
 - **Swagger UI**: `$APPSTRATE_URL/api/docs`

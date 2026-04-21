@@ -298,34 +298,14 @@ Status lifecycle: `pending` → `running` → `success` | `failed` | `timeout` |
 
 ## Run Inline (No Package Import)
 
-For one-shot agents or rapid iteration, skip the pack/import cycle: `POST /api/runs/inline` accepts a full manifest + prompt in the request body. The platform creates an **ephemeral shadow package** (`@inline/r-<uuid>`, hidden from catalog queries), runs it through the standard pipeline, and compacts the manifest/prompt after `retention_days` (default 30).
+Skip the pack/import cycle by putting the full manifest + prompt in the request body. Good for one-shot agents or rapid iteration. Dependencies must reference **existing** org/system packages (no new inline definitions). Not schedulable.
 
 ```bash
-# Execute — returns 202 { runId, packageId }
-appstrate api POST /api/runs/inline \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "manifest": { "name": "@inline/summary", "version": "0.0.0", "type": "agent", "schemaVersion": "1.0", "dependencies": { "tools": { "@appstrate/output": "^1.0.0" } } },
-    "prompt": "Summarize the input in three bullets.",
-    "input": { "text": "..." }
-  }'
-
-# Dry-run validator — same body, no side effects, returns 200 { ok: true } or 400 problem+json
-appstrate api POST /api/runs/inline/validate \
-  -H 'Content-Type: application/json' \
-  -d '{ "manifest": {...}, "prompt": "...", "input": {...} }'
+appstrate api POST /api/runs/inline           # execute, returns 202 { runId, packageId }
+appstrate api POST /api/runs/inline/validate  # dry-run preflight, no credits
 ```
 
-Key rules:
-- Dependencies (`skills`, `tools`, `providers`) must reference **existing** org/system packages — no new inline definitions
-- Not schedulable (schedules require a persisted package)
-- `/validate` shares the same rate bucket as `/inline` — debounce tight iteration loops
-- After compaction, `inlineManifest` / `inlinePrompt` become `null` (run row + result persist)
-- Every run (classic AND inline) now persists a **config snapshot** on `runs.config` — the Run Info tab renders it, decoupled from the package's current config
-
-Limits via `INLINE_RUN_LIMITS` env var: `rate_per_min=60`, `manifest_bytes=65536`, `prompt_bytes=200000`, `max_skills=20`, `max_tools=20`, `max_authorized_uris=50`, `wildcard_uri_allowed=false`, `retention_days=30`.
-
-For full request/response schemas, gotchas, and when to choose inline vs package import: `references/inline-runs.md`.
+Full request/response schema, `INLINE_RUN_LIMITS`, compaction, choosing inline vs package import: `references/inline-runs.md`.
 
 ## Update an Agent (Iterate)
 
@@ -338,65 +318,49 @@ Same version + `-q force=true` overwrites the draft (no version history). Always
 
 ## Schedule an Agent
 
+`POST /api/agents/@scope/name/schedules` with `{ name, cronExpression, timezone, connectionProfileId, input }`. Inline runs are NOT schedulable (schedules require a persisted package). Body fields + common cron patterns: `references/api-cheatsheet.md` > "Schedules".
+
+## Create a Skill
+
+A **skill** is a Markdown knowledge package that the agent reads at runtime. No code. Files:
+
+```
+manifest.json    # type: "skill" — start from templates/skill-manifest.json
+SKILL.md         # YAML frontmatter + Markdown body (the knowledge the agent consumes)
+scripts/         # Optional — bundled helper scripts
+references/      # Optional — extra Markdown docs the agent can load on demand
+```
+
+Pack + import the same way as an agent:
 ```bash
-appstrate api POST /api/agents/@scope/name/schedules \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "name": "Daily digest",
-    "cronExpression": "0 9 * * 1-5",
-    "timezone": "America/Montreal",
-    "connectionProfileId": "profile-uuid",
-    "input": {"maxItems": 20}
-  }'
+bash scripts/afps-pack.sh /path/to/skill-dir /tmp/my-skill.afps
+appstrate api POST /api/packages/import -F file=@/tmp/my-skill.afps
 ```
 
-Common cron patterns: `0 9 * * 1-5` (weekdays 9am), `0 */6 * * *` (every 6h), `0 0 * * 1` (weekly Monday).
+Full field list: `references/manifest-schema.md` > "Skill Fields".
 
-## Create a Skill or Tool
+## Create a Tool
 
-Skills and tools follow the same import workflow. Pack as .afps with manifest.json at root.
+A **tool** is an **executable TypeScript extension** the agent invokes as a function. This is real code compiled into the agent's runtime, not Markdown. Files:
 
-**Skill** (knowledge for the agent):
 ```
-manifest.json    # type: "skill"
-SKILL.md         # YAML frontmatter + Markdown content
-scripts/         # Optional bundled scripts
-references/      # Optional reference docs
+manifest.json    # type: "tool" — start from templates/tool-manifest.json
+index.ts         # Tool implementation
 ```
 
-**Tool** (executable TypeScript extension):
-```
-manifest.json    # type: "tool", with entrypoint and tool.inputSchema
-index.ts         # Tool implementation using @mariozechner/pi-coding-agent
-```
+Non-obvious requirements:
+- `manifest.entrypoint` must point to `index.ts` (or your compiled output).
+- `manifest.tool.inputSchema` is a **JSON Schema** validated by the runtime before calling the tool.
+- `index.ts` must implement the execute signature from `@mariozechner/pi-coding-agent` (the SDK the agent runtime uses). Install as a dev dependency: `bun add -d @mariozechner/pi-coding-agent`.
+- The tool runs inside the agent's sandbox container, so it can use `fetch`, file system, etc. — but has no access to the caller's keyring or shell env.
 
-Templates: `templates/skill-manifest.json`, `templates/tool-manifest.json`.
-
-For tool conventions (execute signature, return format): `references/manifest-schema.md` > Tool section.
-
-## Explore the API Schema
-
-`appstrate openapi` fetches and caches the active profile's OpenAPI spec so you can browse 191+ endpoints without piping the full JSON through stdout:
-
+Pack + import the same way:
 ```bash
-# Compact index, filterable
-appstrate openapi list --tag runs
-appstrate openapi list --method POST --search inline
-appstrate openapi list --path /api/agents
-
-# Detailed view of one operation (dereferences $ref)
-appstrate openapi show listRuns
-appstrate openapi show "POST /api/runs/inline"
-
-# JSON output for agents
-appstrate openapi list --json
-appstrate openapi show listRuns --json
-
-# Dump the raw spec
-appstrate openapi export -o /tmp/openapi.json
+bash scripts/afps-pack.sh /path/to/tool-dir /tmp/my-tool.afps
+appstrate api POST /api/packages/import -F file=@/tmp/my-tool.afps
 ```
 
-Cache flags: `--no-cache` (ephemeral), `--refresh` (force re-download).
+Full field list + execute signature + return format: `references/manifest-schema.md` > "Tool Fields".
 
 ## Data Model: input vs config vs state vs memory vs output
 
