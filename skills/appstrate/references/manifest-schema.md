@@ -164,18 +164,76 @@ Skills can bundle `scripts/`, `references/`, `assets/` directories. The entire .
 
 ## Provider Fields
 
-Key field: `definition` with `authMode`.
+Root field is `definition` with `authMode`. Auth-specific fields are **nested under `definition.<authMode>`** (NOT flat under `definition`). Getting this wrong is the #1 bug when authoring custom providers by hand.
 
-| Auth Mode | Use Case | Key Fields |
-|-----------|----------|------------|
-| `oauth2` | Google, GitHub, Slack | `authorizationUrl`, `tokenUrl`, `refreshUrl`, `defaultScopes`, `pkceEnabled` |
-| `oauth1` | Twitter legacy | `requestTokenUrl`, `authorizationUrl`, `accessTokenUrl` |
-| `api_key` | OpenAI, SendGrid | `credentialHeaderName`, `credentialHeaderPrefix` |
-| `basic` | JIRA basic auth | (none extra) |
-| `custom` | Multi-field creds | `credentialSchema` (JSON Schema form) |
-| `proxy` | HTTP proxy | Auto-sets `allowAllUris: true` |
+### Always on `definition` (root)
 
-Common definition fields: `authorizedUris` (URL patterns with `*` wildcards), `iconUrl`, `categories`, `docsUrl`, `setupGuide`, `availableScopes` (`[{ value, label }]`).
+- `authMode`: `"oauth2" | "oauth1" | "api_key" | "basic" | "custom"` (required)
+- `authorizedUris`: `string[]` — URL patterns with `*` wildcards; the sidecar rejects outgoing requests that don't match
+- `allowAllUris`: `boolean` — bypass the URI whitelist (use with caution)
+- `availableScopes`: `[{ value, label }]` — scope catalog for the connection form
+- `credentialHeaderName`: `string` — e.g. `"Authorization"`
+- `credentialHeaderPrefix`: `string` — e.g. `"Bearer"` (space auto-handled)
+- `credentialTransform`: `{ template, encoding: "base64" }` — optional transform before injection
+
+Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
+
+### Nested per `authMode`
+
+| `authMode` | Nested under | Required fields | Optional |
+|---|---|---|---|
+| `oauth2` | `definition.oauth2` | `authorizationUrl`, `tokenUrl` | `refreshUrl`, `defaultScopes`, `scopeSeparator`, `pkceEnabled`, `tokenAuthMethod`, `tokenContentType`, `authorizationParams`, `tokenParams` |
+| `oauth1` | `definition.oauth1` | `requestTokenUrl`, `authorizationUrl`, `accessTokenUrl` | `authorizationParams` |
+| `api_key` / `basic` / `custom` | `definition.credentials` | `schema` (JSON Schema for the credential form) | `fieldName` (which schema property holds the secret used in `{{variable}}` substitution) |
+
+### Canonical example (OAuth2, from real @appstrate/slack)
+
+```json
+{
+  "definition": {
+    "authMode": "oauth2",
+    "oauth2": {
+      "authorizationUrl": "https://slack.com/oauth/v2/authorize",
+      "tokenUrl": "https://slack.com/api/oauth.v2.access",
+      "defaultScopes": ["channels:read", "chat:write"],
+      "scopeSeparator": ",",
+      "pkceEnabled": false
+    },
+    "credentialHeaderName": "Authorization",
+    "credentialHeaderPrefix": "Bearer",
+    "authorizedUris": ["https://slack.com/api/*"],
+    "availableScopes": [{ "value": "chat:write", "label": "Send messages" }]
+  }
+}
+```
+
+### Canonical example (API key, from real @appstrate/firecrawl)
+
+```json
+{
+  "definition": {
+    "authMode": "api_key",
+    "credentials": {
+      "schema": {
+        "type": "object",
+        "properties": { "api_key": { "type": "string" } },
+        "required": ["api_key"]
+      },
+      "fieldName": "api_key"
+    },
+    "credentialHeaderName": "Authorization",
+    "credentialHeaderPrefix": "Bearer",
+    "authorizedUris": ["https://api.firecrawl.dev/*"]
+  }
+}
+```
+
+### Two creation paths (same end-state in DB)
+
+- `POST /api/providers` — accepts **flat** payload (`authorizationUrl`, `tokenUrl`, ... at top level), the server nests them internally. Faster for one-off internal providers.
+- `POST /api/packages/import` with an AFPS ZIP — manifest must have the **nested** shape shown above. Gives semver + integrity + portability.
+
+Full field list: [AFPS provider schema](https://afps.appstrate.dev/schema/v1/provider.schema.json).
 
 ## Validation Rules
 
