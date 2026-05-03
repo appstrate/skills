@@ -69,6 +69,7 @@ Critical rules (sources of most import-time failures):
 - `dependencies.providers` is `Record<string, semverRange>`, NOT an array.
 - `required` is a top-level array (`"required": ["field"]`), NOT `required: true` on individual properties.
 - `connectionMode`: `"user"` (each user connects their own account) or `"admin"` (shared org-level credentials).
+- **File / upload fields** — there is no `"file"` type. Declare the property as `"type": "string"` with `format: "uri"` + `contentMediaType: "<mime>"` plus a sibling `fileConstraints` block. All three keys must be present together — see `manifest-schema.md` §"File / upload fields" for the full recipe.
 
 Full manifest schema (all 4 package types, every field): `manifest-schema.md`.
 

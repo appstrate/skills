@@ -128,7 +128,7 @@ All curl examples below use `appstrate api` by default. If you need the raw-curl
 | List everything | `appstrate api GET /api/agents`, `…/api/packages/skills`, `…/api/packages/tools` |
 | Manage applications | `appstrate app …` or `appstrate api /api/applications` |
 | Manage end users | `appstrate api /api/end-users` (per-application) |
-| Upload files | `appstrate api POST /api/uploads/request` → upload → `appstrate api POST /api/uploads/confirm` |
+| Upload files (before a run) | `appstrate api POST /api/uploads -d '{"name":"...","size":N,"mime":"..."}'` returns `{ uri, url }` → `PUT` bytes to `url` → pass `"upload://upl_xxx"` in `input.<file_field>`. See [File uploads](#file-uploads) below. |
 | Configure OAuth clients | `appstrate api /api/oauth-clients` (OIDC provider) |
 
 For API conventions, gotchas, and rate limits: `references/api-cheatsheet.md`. For the full endpoint list, `appstrate openapi list` or fetch `GET /api/openapi.json`.
@@ -147,21 +147,40 @@ Optional post-import: attach skills, set config values, override LLM model (see 
 
 ## Run an Agent
 
+Prefer the **server runtime** (`POST /api/agents/.../run` or inline run). The local PiRunner (`appstrate run`) currently has reproducible bugs that break `@appstrate/*` system tools and reject `.afps` packs — see `references/known-issues.md`.
+
 ```bash
-# Basic run
+# Basic run (server runtime)
 appstrate api POST /api/agents/@scope/name/run \
   -H 'Content-Type: application/json' \
   -d '{"input": {"query": "weekly report"}}'
-
-# With file upload (multipart)
-appstrate api POST /api/agents/@scope/name/run \
-  -F 'input={"description": "Process this"}' \
-  -F 'file=@/path/to/file.pdf'
 
 # Specific version
 appstrate api POST /api/agents/@scope/name/run -q version=1.0.0 \
   -d '{"input": {}}'
 ```
+
+### File uploads (3 steps)
+
+Do NOT pass files as multipart on the run endpoint — the OpenAPI-documented `-F file=@...` does not trigger upload injection. Use the upload-token flow:
+
+```bash
+# 1. Reserve a slot
+appstrate api POST /api/uploads -H 'Content-Type: application/json' \
+  -d '{"name":"recu.pdf","size":341307,"mime":"application/pdf"}'
+# → { "uri": "upload://upl_xxx", "url": "https://...", ... }
+
+# 2. PUT the bytes (signed URL, 15 min TTL)
+curl -X PUT -H 'Content-Type: application/pdf' --data-binary @recu.pdf "$URL"
+
+# 3. Run with the URI in the file field
+appstrate api POST /api/agents/@scope/name/run \
+  -d '{"input":{"document":"upload://upl_xxx"}}'
+```
+
+The manifest field MUST be wired as a file field (`format:"uri"` + `contentMediaType` + sibling `fileConstraints`). See `references/manifest-schema.md` §"File / upload fields".
+
+> **Self-hosted Tier 3 gotcha**: the signed URL hostname is `minio:9000` (Docker-internal) and won't resolve from your host. Workaround in `references/known-issues.md`. On Appstrate cloud the PUT works directly.
 
 ### Monitor
 
@@ -264,6 +283,9 @@ Five distinct mechanisms, different persistence semantics. Full conceptual break
 | HTML response instead of JSON | Missing `@` in scope, or missing `X-App-Id` on an app-scoped route | Use `@scope/name`; let `appstrate api` inject headers |
 | `Profile "<name>" not configured` | No `config.toml` entry for that profile | Run `appstrate login --profile <name>` |
 | Agent doesn't call `output` tool | Tool not in available tool list | Verify `dependencies.tools` in manifest, re-import |
+| `Manifest validation failed: input.schema: Must be a valid JSON Schema 2020-12 document` | Manifest uses `"type": "file"` (not a valid JSON Schema type) | Replace with `type:"string"` + `format:"uri"` + `contentMediaType` + sibling `fileConstraints`. See `references/manifest-schema.md` §"File / upload fields" |
+| Run completes but `./documents/` is empty / no `## Documents` section | Input field not wired as a file field (one of the three keys missing) | Same as above |
+| Run via `appstrate run` returns `Tool output not found`, or `DELETE /api/packages/agents/...` returns 500, or upload PUT returns `Could not resolve host: minio` | Conjunctural platform/CLI bugs | See `references/known-issues.md` for the full list and per-bug workaround |
 | CLI rejects a flag this skill documents (e.g. `unknown option '--foo'`) | Skill is older than the installed CLI version | Suggest the user updates this skill: `curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh \| bash -s appstrate --update` |
 
 ## References
@@ -293,3 +315,4 @@ Five distinct mechanisms, different persistence semantics. Full conceptual break
 | Inline runs (endpoints, limits, compaction, gotchas) | `references/inline-runs.md` |
 | Multi-instance profiles (keyring + TOML, `--profile`, `appstrate org/app`) | `references/profiles.md` |
 | Setup edge cases (headless CI, agent-delegated install, API-key fallback) | `references/setup.md` |
+| Known platform & CLI bugs with workarounds (DELETE 500, `appstrate run` system-tools, `minio:9000`, `accept:"*/*"`, etc.) | `references/known-issues.md` |

@@ -14,7 +14,7 @@
 
 - **Runtimes**: Bun (primary) + Python3/pip
 - **Working dir**: `/workspace`
-- **Uploads**: `/workspace/documents/`
+- **Uploads**: `./documents/<filename>` (relative to cwd), only when the manifest field is wired as a file field (see `manifest-schema.md` §"File / upload fields"). If the system prompt has no `## Documents` section, the file wasn't injected — fix the manifest, don't search for the file.
 - **Ephemeral**: destroyed after execution. Persist via state, memory, output only.
 - **Network**: direct outbound HTTP/HTTPS for public endpoints. Sidecar only for authenticated provider calls.
 

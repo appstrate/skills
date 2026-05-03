@@ -12,6 +12,7 @@ Every package has a `manifest.json`.
 - [Dependencies](#dependencies)
 - [Agent Fields](#agent-fields)
 - [Input/Output/Config Schemas](#inputoutputconfig-schemas)
+  - [File / upload fields](#file--upload-fields-pdf-image-attachments)
 - [State and Memories](#state-and-memories)
 - [Skill Fields](#skill-fields)
 - [Tool Fields](#tool-fields)
@@ -80,12 +81,13 @@ All use JSON Schema with these types:
 
 | Type | Notes |
 |------|-------|
-| `"string"` | Supports `enum`, `default`, `minLength`, `maxLength`, `pattern` |
+| `"string"` | Supports `enum`, `default`, `minLength`, `maxLength`, `pattern`, `format`, `contentMediaType` |
 | `"number"` | Supports `minimum`, `maximum`. AJV coerces `"50"` -> `50` |
 | `"boolean"` | Supports `default` |
 | `"array"` | Requires `items` |
 | `"object"` | Nested `properties` + `required` |
-| `"file"` | Input only. `accept`, `maxSize` (bytes), `multiple`, `maxFiles` |
+
+> **There is no `"file"` type.** A common mistake is to write `"type": "file"` — this is not a valid JSON Schema 2020-12 type and the AFPS validator rejects the manifest with `Manifest validation failed: input.schema: Must be a valid JSON Schema 2020-12 document`. Use the file fields recipe below instead.
 
 Display: `title` (label), `description` (help text), `default`, `propertyOrder` (field order).
 
@@ -106,6 +108,48 @@ Display: `title` (label), `description` (help text), `default`, `propertyOrder` 
   }
 }
 ```
+
+### File / upload fields (PDF, image, attachments)
+
+To accept a user-uploaded file in `input`, declare a **string** property with **three keys together** — `format: "uri"`, `contentMediaType: "<mime>"`, and a sibling `fileConstraints` block (placed next to `schema`, NOT inside it):
+
+```json
+{
+  "input": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "type": "string",
+          "format": "uri",
+          "contentMediaType": "application/pdf",
+          "title": "Document à extraire",
+          "description": "PDF or image. Uploaded via upload://, delivered to ./documents/<filename> in the sandbox."
+        }
+      },
+      "required": ["document"]
+    },
+    "fileConstraints": {
+      "document": {
+        "accept": "application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp",
+        "maxSize": 33554432
+      }
+    },
+    "propertyOrder": ["document"]
+  }
+}
+```
+
+**Why all three keys are required** — the server-side `input-parser.collectUploadRefs` recognizes a property as a file field only if `format === "uri" && contentMediaType` is present. Without these two, the value `"upload://upl_xxx"` is treated as a plain string, `consumeUpload` is never called, and the sandbox starts with an empty `./documents/` (no `## Documents` section in the system prompt). The webapp file-picker widget uses the same detection — without these keys, it shows a plain text input instead of a file picker.
+
+**`fileConstraints`** — sibling of `schema`, keyed by property name. Three sub-keys:
+- `accept` — comma-separated list of MIMEs **and** extensions (e.g. `"application/pdf,.pdf"`). **Do NOT use `"*/*"`** — the webapp validator compares it literally and rejects all files. Always enumerate.
+- `maxSize` — bytes (max 100 MB).
+- `maxFiles` — optional, for arrays.
+
+**Multiple files** — use `type: "array", items: { type: "string", format: "uri", contentMediaType: "<mime>" }`. The platform applies the same detection on `items`.
+
+**How to test the wiring** — after import, open the agent in the webapp and click "Run". If the input field renders as a file picker, the manifest is correctly wired. If it renders as a plain text input, one of the three keys is missing.
 
 ## State and Memories
 
