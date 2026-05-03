@@ -70,22 +70,36 @@ Or skip the round-trip entirely and use inline run.
 
 ## Self-hosted Tier 3: signed upload URL points to `minio:9000`
 
-**Symptom**: `POST /api/uploads` returns a signed URL like `http://minio:9000/...`. PUT-ing to it from your host (Mac/Linux, the webapp browser, or `curl`) fails with `Could not resolve host: minio`.
+**Symptom**: `POST /api/uploads` returns a signed URL like `http://minio:9000/...`. PUT-ing to it from the host (Mac/Linux, the webapp browser, `curl`, a coding agent) fails with `Could not resolve host: minio`. Reproducible from scratch on a fresh `appstrate install --tier 3`.
 
-**Cause**: `minio` is the Docker-internal hostname. Tier 3 install does not publish the minio port on the host (`docker ps` shows `9000-9001/tcp` without `0.0.0.0:` mapping). On Appstrate cloud the URL is public (`https://storage.appstrate.com/...`) and works directly.
+**Cause**: regression in the Tier 3 installer's compose generator. The canonical `docker-compose.yml` of the OSS repo correctly maps minio's port 9000 on the host **and** references `S3_PUBLIC_ENDPOINT`. The Tier 3 installer drops both: minio publishes only its console port (9001), and `S3_PUBLIC_ENDPOINT` is never propagated to the appstrate service. So the server's two-S3-clients code (it has dedicated logic to sign URLs with a separate public endpoint) falls back to the internal Docker hostname, which is unreachable from outside the network. Cloud is unaffected because its deployment sets `S3_PUBLIC_ENDPOINT=https://storage.appstrate.com` explicitly.
 
-**Workaround** (self-hosted, from the host machine):
+**Workaround** (permanent, drop-in): create `docker-compose.override.yml` next to the install's `docker-compose.yml`. Compose auto-merges it on every `up`, and it survives Appstrate updates.
 
-```bash
-docker run --rm \
-  --network appstrate-appstrate-<id>_appstrate-data \
-  -v /path/to/file.pdf:/f:ro \
-  curlimages/curl:latest \
-  -X PUT -H 'Content-Type: application/pdf' \
-  --data-binary @/f "$SIGNED_URL"
+```yaml
+# ~/appstrate/docker-compose.override.yml
+services:
+  minio:
+    networks:
+      - appstrate-data
+      - appstrate-public  # required: appstrate-data is internal:true,
+                           # so the port mapping below is silently
+                           # ignored without this second network
+    ports:
+      - "9000:9000"
+  appstrate:
+    environment:
+      - S3_PUBLIC_ENDPOINT=http://localhost:9000
 ```
 
-Find your Docker network with `docker network ls --filter name=appstrate`.
+Apply it:
+
+```bash
+cd ~/appstrate
+docker compose -p appstrate-appstrate-<id> up -d --force-recreate minio appstrate
+```
+
+Find the project id with `docker compose ls` (or the install's stdout — it printed it after install). After the recreate, `POST /api/uploads` returns URLs pointing to `localhost:9000` and PUT from the host returns HTTP 200.
 
 ---
 
