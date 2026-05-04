@@ -272,10 +272,34 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
 }
 ```
 
-### Two creation paths (same end-state in DB)
+### Provider package files
 
-- `POST /api/providers` — accepts **flat** payload (`authorizationUrl`, `tokenUrl`, ... at top level), the server nests them internally. Faster for one-off internal providers.
-- `POST /api/packages/import` with an AFPS ZIP — manifest must have the **nested** shape shown above. Gives semver + integrity + portability.
+An AFPS provider package MUST contain two files:
+
+| File | Required | Purpose |
+|------|----------|---------|
+| `manifest.json` | yes | Provider definition (auth mode, allowed URIs, scopes, …) |
+| `PROVIDER.md` | **yes** | API documentation (endpoints, params, response shapes, gotchas) — injected into the agent's system prompt at runtime so the LLM knows how to call the API |
+
+**`PROVIDER.md` is not optional.** Without it, the runtime errors at dispatch with `DraftPackageCatalog: <provider-id> has no files in storage` and the agent can't run. For style + structure, copy any built-in provider AFPS in [appstrate/appstrate/system-packages](https://github.com/appstrate/appstrate/tree/main/system-packages) (e.g. `provider-firecrawl-1.0.0.afps`) and `unzip -p <file> PROVIDER.md`.
+
+### Two creation paths — NOT equivalent
+
+- **`POST /api/packages/import`** with an AFPS ZIP (recommended) — `manifest.json` (nested shape above) + `PROVIDER.md`. Only this path stores the files the runtime needs. Use this for any provider you intend to actually call from an agent.
+- **`POST /api/providers`** (flat payload) — accepts `authorizationUrl`, `tokenUrl`, … at top level; the server nests them internally. Creates the DB row but **does NOT populate the file storage**, so the provider appears in the UI but agents that depend on it fail at dispatch (see "DraftPackageCatalog" in `references/known-issues.md`). Avoid for runtime use; only acceptable for definition-only experiments.
+
+### Saving a credential
+
+Once the provider package is imported, save the user credential via the connection endpoint. The body uses **camelCase `apiKey`**, not the snake_case `api_key` defined in the provider's `credentials.schema`:
+
+```bash
+appstrate api POST '/api/connections/connect/@scope/name/api-key' \
+  -H 'Content-Type: application/json' \
+  -d '{"apiKey": "sk-..."}'
+# → { "success": true }
+```
+
+Verify with `GET /api/connections` — entry should report `status: "connected"`.
 
 Full field list: [AFPS provider schema](https://afps.appstrate.dev/schema/v1/provider.schema.json).
 

@@ -9,6 +9,8 @@ Conjunctural bugs and limitations observed on **`appstrate-version: 2026-03-21`*
 - [`appstrate run` rejects `.afps`, only accepts `.afps-bundle`](#appstrate-run-rejects-afps-only-accepts-afps-bundle)
 - [Self-hosted Tier 3: signed upload URL points to `minio:9000`](#self-hosted-tier-3-signed-upload-url-points-to-minio9000)
 - [Webapp file picker rejects `accept: "*/*"` literally](#webapp-file-picker-rejects-accept--literally)
+- [Custom provider runs fail with `DraftPackageCatalog: ... has no files in storage`](#custom-provider-runs-fail-with-draftpackagecatalog--has-no-files-in-storage)
+- [`POST /api/models` rejects optional `cost.cacheRead`/`cacheWrite` as required](#post-apimodels-rejects-optional-costcacheread--cachewrite-as-required)
 
 ---
 
@@ -120,3 +122,69 @@ The validator compares `*/*` literally instead of treating it as the standard HT
 ```
 
 Same logic for family wildcards — `image/*` is also rejected literally; expand it.
+
+---
+
+## Custom provider runs fail with `DraftPackageCatalog: ... has no files in storage`
+
+**Symptom**: any agent that depends on a custom provider you created fails at dispatch.
+- Persisted run (`POST /api/agents/{scope}/{name}/run`) returns generic `500 internal_error` with no detail.
+- Inline run (`POST /api/runs/inline`) surfaces the actual cause: `DraftPackageCatalog: <provider-id> has no files in storage`.
+
+Use the inline-run path to get a real error when debugging — it bypasses the dispatcher's generic 500 wrapping.
+
+**Cause**: the provider was either (a) created via `POST /api/providers` (flat payload), which writes the DB row but skips file storage entirely, or (b) imported via AFPS but the ZIP only contained `manifest.json`. The runtime requires the AFPS to also contain `PROVIDER.md` — that file gets injected into the agent's system prompt at dispatch so the LLM knows how to call the provider's API. With no files in storage, dispatch refuses to materialize the provider in the sandbox.
+
+**Fix**: package the provider with **both** files, then re-import:
+
+```
+my-provider/
+├── manifest.json     # type: "provider", definition.* (auth, allowed URIs, …)
+└── PROVIDER.md       # endpoints, auth header, response shapes, gotchas
+```
+
+```bash
+bash scripts/afps-pack.sh ./my-provider /tmp/p.afps
+appstrate api POST /api/packages/import -F file=@/tmp/p.afps -q force=true
+```
+
+`force=true` overwrites any broken draft created by an earlier flat-create or partial import; no need to bump the version unless you want to keep the broken one as a debugging artefact. Re-running the agent immediately should now succeed.
+
+For a `PROVIDER.md` template, `unzip -p` any built-in provider in [appstrate/appstrate/system-packages](https://github.com/appstrate/appstrate/tree/main/system-packages) (e.g. `provider-firecrawl-1.0.0.afps`).
+
+> **Built-in providers (`@appstrate/*`) are unaffected** — they ship with their `PROVIDER.md` already in place. This bug only bites when you create your own custom provider.
+
+---
+
+## `POST /api/models` rejects optional `cost.cacheRead` / `cacheWrite` as required
+
+**Symptom**: when registering a custom LLM model via API:
+
+```bash
+appstrate api POST /api/models -d '{
+  "label":"…", "api":"…", "baseUrl":"…", "modelId":"…", "providerKeyId":"…",
+  "cost": { "input": 1.5, "output": 7.5 }
+}'
+```
+
+Returns `400 validation_failed` with:
+
+```
+cost.cacheRead: Invalid input: expected number, received undefined
+cost.cacheWrite: Invalid input: expected number, received undefined
+```
+
+The OpenAPI schema lists `cost` as a single optional object with all four sub-fields independently optional, but the runtime validator treats the inner fields as required once `cost` is present.
+
+**Workaround**: omit the `cost` object entirely. The model is created successfully and pricing simply isn't tracked.
+
+```bash
+appstrate api POST /api/models -d '{
+  "label":"Mistral Large 3", "api":"mistral-conversations",
+  "baseUrl":"https://api.mistral.ai", "modelId":"mistral-large-2512",
+  "providerKeyId":"<id>",
+  "input":["text","image"], "contextWindow":256000, "maxTokens":32768
+}'
+```
+
+If you need cost tracking, provide all four sub-fields (use `0` as a placeholder for cache pricing if unknown).
