@@ -48,7 +48,7 @@ Re-run `appstrate whoami` from your Bash tool to confirm. When it returns the us
 
 > **If the user has no LLM key connected**, agent runs will fail at dispatch. Two paths to add one:
 > 1. **UI** (simplest): webapp at `http://localhost:3000` → Settings → Models → Add a model.
-> 2. **API** (scriptable, e.g. for bulk-adding models): `POST /api/provider-keys` to register the API key, then `POST /api/models` referencing the returned `providerKeyId`. The schema marks `cost.cacheRead` and `cost.cacheWrite` as optional but the validator currently rejects them as missing — omit the entire `cost` object if you don't have those numbers.
+> 2. **API** (scriptable): `POST /api/provider-keys` to register the key, then `POST /api/models` referencing the returned `providerKeyId`. Validator gotcha around the `cost` object: see `references/known-issues.md`.
 
 For edge cases the skill does NOT cover by default (headless CI, agent-delegated install, tier upgrades, non-interactive flags, API-key fallback for environments without the CLI): `references/setup.md`.
 
@@ -273,37 +273,24 @@ Manifest field list + execute signature + return format: `references/manifest-sc
 
 ## Create a Provider
 
-> **Most users never need this.** Appstrate ships 60+ built-in providers under `@appstrate/*` (Gmail, Drive, Slack, Firecrawl, Linear, …). List them with `appstrate api GET /api/packages/providers`. Only create a custom provider when you need to integrate an external API that isn't already covered.
+> **Most users never need this.** Appstrate ships 60+ built-in providers under `@appstrate/*`. List with `appstrate api GET /api/packages/providers`. Only create a custom provider to integrate an API not yet covered.
 
-A **provider** is a connector to an external API. Auth is declarative: the sidecar injects credentials at runtime so agents never see the raw key. Files:
+A **provider** is a connector to an external API. Auth is declarative; the sidecar injects credentials at runtime so agents never see the raw key. Files:
 
 ```
 manifest.json    # type: "provider" — auth definition, allowed URIs
-PROVIDER.md      # API documentation (endpoints, params, examples) — REQUIRED
+PROVIDER.md      # API docs injected into the agent system prompt — REQUIRED
 ```
 
-**Both files are mandatory.** `PROVIDER.md` is injected into the agent's system prompt at dispatch so the LLM knows how to call the API. Without it, runs fail with `DraftPackageCatalog: <provider-id> has no files in storage` (visible via inline-run; persisted runs return generic 500). See `references/known-issues.md`.
-
-For style + structure of `PROVIDER.md`, copy any built-in provider as a reference: download from [appstrate/appstrate/system-packages](https://github.com/appstrate/appstrate/tree/main/system-packages) (e.g. `provider-firecrawl-1.0.0.afps`) and `unzip -p <file> PROVIDER.md`.
-
-Pack + import:
+Pack + import + save credential:
 ```bash
-bash scripts/afps-pack.sh /path/to/provider-dir /tmp/my-provider.afps
+bash scripts/afps-pack.sh ./my-provider /tmp/my-provider.afps
 appstrate api POST /api/packages/import -F file=@/tmp/my-provider.afps
-```
-
-Save the credential (note: body field is `apiKey` camelCase, not the snake_case `api_key` used in the credential schema):
-```bash
 appstrate api POST '/api/connections/connect/@scope/name/api-key' \
-  -H 'Content-Type: application/json' \
-  -d '{"apiKey": "sk-..."}'
+  -d '{"apiKey": "..."}'
 ```
 
-Verify with `appstrate api GET /api/connections` — your provider should appear with `status: "connected"`.
-
-> **Do NOT use `POST /api/providers` (flat payload) for runnable providers.** It creates the DB row but does not populate the file storage that the runtime requires. The provider will appear in the UI but agents that depend on it will fail at dispatch. See `references/manifest-schema.md` §"Two creation paths — NOT equivalent".
-
-Manifest field list: `references/manifest-schema.md` > "Provider Fields".
+Manifest fields, `PROVIDER.md` template guidance, the camelCase `apiKey` body, and the warning against `POST /api/providers` flat creation: `references/manifest-schema.md` > "Provider Fields".
 
 ## Data Model: input vs config vs state vs memory vs output
 
