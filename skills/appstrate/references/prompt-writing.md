@@ -30,10 +30,14 @@ The platform prepends these automatically. Do NOT repeat them in prompt.md:
 6. `## User Input` — input field values
 7. `## Documents` — uploaded file paths
 8. `## Configuration` — config values
-9. `## Previous State` — JSON from last execution
-10. `## Memory` — 3 scoped arrays
-11. `## Execution History` — curl for history via sidecar
-12. `## Output Format` — expected JSON + validation rules
+9. `## Previous State` — JSON from last execution (legacy `set-state` path)
+10. `## Checkpoint` — content of `pin({ key: "checkpoint", ... })` from the previous run, rendered as fenced JSON
+11. `## Pinned Slots` — content of every `pin({ key: "<custom>", ... })` (any key other than `"checkpoint"`), rendered as `### <key>` subsections (requires platform patch `ebaa95c7` — without it, slots with custom keys are stored but not rendered)
+12. `## Memory` — pinned memos (no key, written via `note` with `pinned: true`)
+13. `## Execution History` — curl for history via sidecar
+14. `## Output Format` — expected JSON + validation rules
+
+> **State / pin pattern (post-ADR-011/012/013)** — modern agents read cross-run state from sections 10-11, NEVER via `recall_memory` (which only searches the archive of `note(content)` entries with `key=null`). Tell the LLM explicitly in `prompt.md`: *"Read state from `## Checkpoint` and `## Pinned Slots`. Do NOT call `recall_memory` to look for state — that tool searches archive notes, not pinned slots."* Full pattern + 5 gotchas: see `references/state-and-checkpoint.md`.
 
 ## Sidecar Proxy Protocol
 
