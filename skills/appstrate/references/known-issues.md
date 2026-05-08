@@ -1,6 +1,6 @@
 # Known issues — Appstrate platform & CLI
 
-Conjunctural bugs and limitations observed on **`appstrate-version: 2026-03-21`** with CLI **`appstrate@1.0.0-alpha.64`**. If your instance reports a newer version, verify each entry before relying on the workaround — they may have been fixed.
+Conjunctural bugs and limitations observed on **`appstrate-version: 2026-03-21`** with CLI **`appstrate@1.0.0-beta.6`**. If your instance reports a newer version, verify each entry before relying on the workaround — they may have been fixed. Each entry below ends with an **Upstream** line: open PR + branch when a fix is in flight, or an explicit "no PR planned" note when the workaround is the canonical answer.
 
 > **Upstream patches in flight** — fixes for several issues below are open as PRs against `appstrate/appstrate`:
 > [#360](https://github.com/appstrate/appstrate/pull/360) (DELETE 500 cascade) ·
@@ -33,6 +33,8 @@ Conjunctural bugs and limitations observed on **`appstrate-version: 2026-03-21`*
 
 **Workaround**: delete via the **webapp UI** — the UI uses a different code path that handles the run-cascade correctly. Don't waste cycles on API workarounds.
 
+**Upstream**: [PR #360](https://github.com/appstrate/appstrate/pull/360) (open) — schema migration that changes the `llm_usage.run_id` FK to `ON DELETE CASCADE`.
+
 ---
 
 ## `appstrate run` CLI cannot load `@appstrate/*` system tools
@@ -57,6 +59,8 @@ The agent then improvises, dumps text instead of calling `output`, and the run c
 
 Both load system tools correctly.
 
+**Upstream**: no PR planned — root cause requires either bundling `pi-ai` into each extracted `tool.js`, a Bun loader plugin in PiRunner, or symlinking the binary's embedded modules into the tmpdir. The server-runtime workaround above is the canonical answer.
+
 ---
 
 ## `appstrate run` rejects `.afps`, only accepts `.afps-bundle`
@@ -78,6 +82,8 @@ appstrate run local.afps-bundle --input '{}' --model-source preset --model <pres
 ```
 
 Or skip the round-trip entirely and use inline run.
+
+**Upstream**: no PR planned — an initial attempt (commit `08611892`) only improved the error message without resolving the format ambiguity, and was reverted (`4b9a5ebb`). The CLI help still lists `.afps`; until the formats are unified or the help is corrected, the workaround above is the canonical answer.
 
 ---
 
@@ -114,6 +120,8 @@ docker compose -p appstrate-appstrate-<id> up -d --force-recreate minio appstrat
 
 Find the project id with `docker compose ls` (or the install's stdout — it printed it after install). After the recreate, `POST /api/uploads` returns URLs pointing to `localhost:9000` and PUT from the host returns HTTP 200.
 
+**Upstream**: no PR planned — the compose override above is the canonical operator workaround. A proper installer fix (3 changes in the Tier 3 compose generator: re-add port `9000:9000`, attach minio to `appstrate-public`, propagate `S3_PUBLIC_ENDPOINT` default) is feasible but would also require a new install path, not a patch on existing installs.
+
 ---
 
 ## Webapp file picker rejects `accept: "*/*"` literally
@@ -133,6 +141,8 @@ The validator compares `*/*` literally instead of treating it as the standard HT
 ```
 
 Same logic for family wildcards — `image/*` is also rejected literally; expand it.
+
+**Upstream**: [PR #361](https://github.com/appstrate/appstrate/pull/361) (open) — bundle includes the 1-line fix in `file-widget.tsx` plus two unrelated self-hosting fixes.
 
 ---
 
@@ -164,6 +174,8 @@ appstrate api POST /api/packages/import -F file=@/tmp/p.afps -q force=true
 For a `PROVIDER.md` template, `unzip -p` any built-in provider in [appstrate/appstrate/system-packages](https://github.com/appstrate/appstrate/tree/main/system-packages) (e.g. `provider-firecrawl-1.0.0.afps`).
 
 > **Built-in providers (`@appstrate/*`) are unaffected** — they ship with their `PROVIDER.md` already in place. This bug only bites when you create your own custom provider.
+
+**Upstream**: no PR planned — `PROVIDER.md` is the documented contract per AFPS spec. The 500 wrapping that hides the underlying error message could be improved (the inline-run path already surfaces it correctly), but the missing-`PROVIDER.md` failure is by design.
 
 ---
 
@@ -200,6 +212,8 @@ appstrate api POST /api/models -d '{
 
 If you need cost tracking, provide all four sub-fields (use `0` as a placeholder for cache pricing if unknown).
 
+**Upstream**: no PR planned — the OpenAPI schema and the runtime Zod validator disagree on which `cost` sub-fields are required when `cost` is present. Either path (relax the validator or update the OpenAPI to match) is a 1-line change but no upstream fix has been opened. The omit-`cost` workaround above stays canonical.
+
 ---
 
 ## `provider_call({ substituteBody: true })` silently dropped — placeholders forwarded literally
@@ -226,3 +240,5 @@ So the sidecar never sees the flag, falls into the buffered body branch without 
 **Workaround until merged** — for usages where this flag is required (ClassDojo, Amisgest, OrgaBusiness, any SaaS demanding a JSON `{email, password}` login instead of a Bearer header), **the platform patch is mandatory**. No agent-side workaround is viable: putting credentials in plain text in agent config defeats the security model (the LLM sees the secret), and pre-substituting client-side requires reading the credential from the runner's env which providers do not expose.
 
 **For tools that wrap such providers**, defensively check the response for a placeholder echo (`{{email}}` literal in upstream error logs or auth-failure responses) and fail loud with a typed error pointing to this issue, rather than retrying or silently corrupting downstream state.
+
+**Upstream**: [PR #363](https://github.com/appstrate/appstrate/pull/363) (open) — 2 lines across 2 files: declare `substituteBody` in the AFPS Zod schema, propagate it in the resolver's `buildMcpArgs`.
