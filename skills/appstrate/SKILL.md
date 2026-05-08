@@ -7,6 +7,10 @@ description: Build, deploy, run, and iterate on AI agents on self-hosted Appstra
 
 Manage AI agents on self-hosted Appstrate instances via the `appstrate` CLI or the REST API. Everything is a **package** with a scoped name (`@scope/name`). Four types: `agent`, `skill`, `tool`, `provider`.
 
+## Sections
+
+[Setup](#setup) · [Profile management](#profile-management) · [API Conventions](#api-conventions) · [Quick Reference](#quick-reference) · [Create an Agent](#create-an-agent) · [Run an Agent](#run-an-agent) · [Run Inline](#run-inline-no-package-import) · [Update an Agent](#update-an-agent-iterate) · [Schedule an Agent](#schedule-an-agent) · [Create a Skill](#create-a-skill) · [Create a Tool](#create-a-tool) · [Create a Provider](#create-a-provider) · [Data Model](#data-model-input-vs-config-vs-state-vs-memory-vs-output) · [Common Errors](#common-errors) · [References](#references)
+
 - **API docs**: `$APPSTRATE_URL/api/docs` on your instance (or `appstrate openapi list` for the active profile)
 - **OpenAPI JSON**: `GET /api/openapi.json` (or `appstrate openapi export`)
 - **GitHub (open-source)**: https://github.com/appstrate/appstrate
@@ -99,7 +103,7 @@ X-Org-Id: <org-id>
 X-App-Id: <application-id>           # NEW: required for app-scoped routes (most resource routes)
 ```
 
-**Scoped routes** — scope MUST include the `@` prefix: `@tractr/my-agent`, NOT `tractr/my-agent`. Without `@`, the catch-all SPA middleware swallows the request and returns HTML.
+**Scoped routes** — scope MUST include the `@` prefix: `@tractr/my-agent`, NOT `tractr/my-agent`. Without `@`, the catch-all SPA middleware swallows the request and returns HTML. **The `@` must be literal, not URL-encoded.** `encodeURIComponent("@scope")` produces `%40scope` — the SPA middleware matches `@` literally, NOT `%40`, and the request returns `404 "API endpoint not found"` (misleading because the agent exists). When building URLs in TypeScript, interpolate `${scope}` directly — the scope is `[a-zA-Z0-9_-]+` after `@`, safe as a path segment without encoding.
 
 **SSE realtime** — SSE endpoints accept the API key via query param: `?token=ask_…`. For `appstrate api`, pass `-H 'Accept: text/event-stream'` and the CLI handles the bearer.
 
@@ -306,6 +310,8 @@ Five distinct mechanisms, different persistence semantics. Full conceptual break
 | 409 `DRAFT_OVERWRITE` | Package has unpublished changes | Add `-q force=true` to import URL |
 | 403 `agents:write required` | API key missing new scopes after platform update | Create a new API key in the UI, or re-run `appstrate login` |
 | HTML response instead of JSON | Missing `@` in scope, or missing `X-App-Id` on an app-scoped route | Use `@scope/name`; let `appstrate api` inject headers |
+| `404 "API endpoint not found: POST /api/agents/%40scope/name/run"` even though the agent exists | URL built with `encodeURIComponent(scope)` turns `@` into `%40`. SPA middleware matches `@` literally. | Interpolate the scope raw: `` `/api/agents/${scope}/${name}/run` ``. Do NOT pass through `encodeURIComponent`. |
+| Run is `success`, agent called `output()` correctly, but `result.summary` (or another output schema field) is `undefined` | The result is nested under `result.output.X`, NOT at the top level of `result` | Read `result.output.summary`. The schema in `manifest.output.schema` describes the shape of the `data` argument passed to `output()`, NOT the shape of `result`. See `references/manifest-schema.md` §"Output schema" |
 | `Profile "<name>" not configured` | No `config.toml` entry for that profile | Run `appstrate login --profile <name>` |
 | Agent doesn't call `output` tool | Tool not in available tool list | Verify `dependencies.tools` in manifest, re-import |
 | `Manifest validation failed: input.schema: Must be a valid JSON Schema 2020-12 document` | Manifest uses `"type": "file"` (not a valid JSON Schema type) | Replace with `type:"string"` + `format:"uri"` + `contentMediaType` + sibling `fileConstraints`. See `references/manifest-schema.md` §"File / upload fields" |
@@ -344,4 +350,5 @@ Five distinct mechanisms, different persistence semantics. Full conceptual break
 | Inline runs (endpoints, limits, compaction, gotchas) | `references/inline-runs.md` |
 | Multi-instance profiles (keyring + TOML, `--profile`, `appstrate org/app`) | `references/profiles.md` |
 | Setup edge cases (headless CI, agent-delegated install, API-key fallback) | `references/setup.md` |
-| Known platform & CLI bugs with workarounds (DELETE 500, `appstrate run` system-tools, `minio:9000`, `accept:"*/*"`, etc.) | `references/known-issues.md` |
+| Tool custom vs script in a skill — decision rule, anti-patterns | `references/tools-vs-scripts.md` |
+| Known platform & CLI bugs with workarounds (DELETE 500, `appstrate run` system-tools, `minio:9000`, `accept:"*/*"`, `substituteBody`, etc.) | `references/known-issues.md` |

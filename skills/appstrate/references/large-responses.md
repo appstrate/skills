@@ -71,6 +71,30 @@ That's it. One function covers both inline and spilled cases.
 
 ---
 
+## Binary downloads — `responseMode: { toFile: ... }`
+
+For **binary** payloads (PDFs, images, archives, audio, video), `ctx.readResource` is not optimal: the content travels base64-encoded inside the MCP envelope (capped at `SIDECAR_MAX_MCP_ENVELOPE_BYTES`, 16 MB default — surcharged by the ~33% base64 inflation), then is reloaded into RAM tool-side before `writeFile`. Risks: OOM, latency, silent failure beyond the cap.
+
+The sidecar exposes `responseMode: { toFile: "<path>" }` which **streams the upstream body directly to a file** in the sandbox's shared filesystem. No base64, no envelope, no practical size limit (bounded only by container disk, typically several GB).
+
+```ts
+const result = await ctx.providerCall("@appstrate/google-drive", {
+  method: "GET",
+  target: `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+  responseMode: { toFile: "/tmp/download.pdf" },
+});
+
+// result.content[0].text is a JSON summary (status, size, path).
+// The bytes are on disk at /tmp/download.pdf — read with fs/promises.
+const stats = await stat("/tmp/download.pdf");
+```
+
+**When to use `toFile` vs `readResource`:**
+- **`toFile`** — you need a file on disk (PDF to pass to `pdf-toolkit`, image to analyze, archive to unzip). Always prefer for binaries.
+- **`ctx.readResource(uri)`** — you need the content **in memory** in the tool (parse JSON, extract short text). Right choice for text bodies up to a few MB.
+
+**Sandbox path gotcha** — depending on the sandbox config, some absolute paths are restricted (e.g. `/tmp/` may need a subfolder). On write errors, retry with a relative path like `downloads/<name>` (the sandbox creates the folder under the runner's CWD).
+
 ## Fallback for runtime-pi <= 1.0.0-beta.6
 
 If your tool must run on a runtime that predates `ctx.readResource`, the manual workaround is to JSON-RPC the sidecar's `/mcp` endpoint directly:
@@ -167,3 +191,4 @@ If your runtime doesn't have this patch, **any text response > 256 KB will be si
 | Tool TS receives empty body / `result.content[0].text === ""` but `ctx.providerCall` does not throw | Upstream response ≥ 32 KB → spilled as `resource_link` (`appstrate://provider-response/...`). Tool ignores the URI branch. | Resolve via `ctx.readResource(block.uri)` (runtime-pi >= 1.0.0-beta.7). See snippet above. |
 | Writer tool (push GitHub, upsert Notion, etc.) doing a GET pre-check loops on 422/409 even though the resource exists | The pre-check GET spills as `resource_link` when the existing resource > 32 KB → `sha` / etag never extracted → retry without the right header → 422 | Same fix: apply `ctx.readResource` on the pre-check GET. |
 | Body returned by `ctx.readResource` mysteriously truncated to ~259 KB with `[truncated: response exceeded 262144 bytes]` at the end | Sidecar amont bug: truncates at 256 KB BEFORE BlobStore spillover (`runtime-pi/sidecar/mcp.ts`) | Platform patch (`bugs-evos-oli` commit `dea49d06`) raises cap to 1 MB. Without the patch: no tool-side workaround. |
+| `result.content[0].text === ""` or empty body from `ctx.providerCall` on a binary download > 500 KB | Binary content exceeds the inline cap and the base64 envelope path saturates / the tool fails to decode `c.blob` past a few MB | Use `responseMode: { toFile: "<path>" }`. Sidecar streams directly to disk; read the file with `fs.stat` / `fs.readFile` afterwards. |

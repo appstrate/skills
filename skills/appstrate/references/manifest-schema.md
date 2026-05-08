@@ -151,6 +151,23 @@ To accept a user-uploaded file in `input`, declare a **string** property with **
 
 **How to test the wiring** — after import, open the agent in the webapp and click "Run". If the input field renders as a file picker, the manifest is correctly wired. If it renders as a plain text input, one of the three keys is missing.
 
+### Output schema — `result.output.X` nesting (not `result.X`)
+
+The agent calls `@appstrate/output` with `output({ data: { summary: "...", stats: {...} } })`. The `data` payload is what `manifest.output.schema` describes. But when reading the run via `GET /api/runs/{id}`, the result is **wrapped under `result.output`**:
+
+```json
+{
+  "result": {
+    "output": {
+      "summary": "...",
+      "stats": {...}
+    }
+  }
+}
+```
+
+Read `result.output.<field>`, NOT `result.<field>`. The schema describes the shape of `data`, NOT the shape of `result`. This trips up most first-time agent debuggers — runs land as `success`, `output` was called correctly, but `result.summary` reads as `undefined` and the dev wastes hours chasing a non-bug.
+
 ## State and Memories
 
 **State**: Free-form JSON, overwritten each run. Agent returns `result.state`, injected as `## Previous State` next run.

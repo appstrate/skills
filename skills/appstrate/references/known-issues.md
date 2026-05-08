@@ -2,6 +2,16 @@
 
 Conjunctural bugs and limitations observed on **`appstrate-version: 2026-03-21`** with CLI **`appstrate@1.0.0-alpha.64`**. If your instance reports a newer version, verify each entry before relying on the workaround — they may have been fixed.
 
+> **Upstream patches in flight** — fixes for several issues below are open as PRs against `appstrate/appstrate`:
+> [#360](https://github.com/appstrate/appstrate/pull/360) (DELETE 500 cascade) ·
+> [#361](https://github.com/appstrate/appstrate/pull/361) (UI accept `*/*`, PEP 370, healthcheck IPv4) ·
+> [#362](https://github.com/appstrate/appstrate/pull/362) (prompt rendering: `./documents/`, pinned slots) ·
+> [#363](https://github.com/appstrate/appstrate/pull/363) (`substituteBody` propagation) ·
+> [#364](https://github.com/appstrate/appstrate/pull/364) (`ctx.providerCall` + `ctx.readResource`) ·
+> [#365](https://github.com/appstrate/appstrate/pull/365) (sidecar 256 KB payload caps) ·
+> [#366](https://github.com/appstrate/appstrate/pull/366) (5-min wall on long agent runs).
+> Once merged + released, the corresponding entry below becomes obsolete — check the PR status before assuming a bug applies to a recently updated install.
+
 ## Table of Contents
 
 - [DELETE agent returns 500 once a run exists](#delete-agent-returns-500-once-a-run-exists)
@@ -11,6 +21,7 @@ Conjunctural bugs and limitations observed on **`appstrate-version: 2026-03-21`*
 - [Webapp file picker rejects `accept: "*/*"` literally](#webapp-file-picker-rejects-accept--literally)
 - [Custom provider runs fail with `DraftPackageCatalog: ... has no files in storage`](#custom-provider-runs-fail-with-draftpackagecatalog--has-no-files-in-storage)
 - [`POST /api/models` rejects optional `cost.cacheRead`/`cacheWrite` as required](#post-apimodels-rejects-optional-costcacheread--cachewrite-as-required)
+- [`provider_call({ substituteBody: true })` silently dropped — placeholders forwarded literally](#provider_call-substitutebody-true-silently-dropped--placeholders-forwarded-literally)
 
 ---
 
@@ -188,3 +199,30 @@ appstrate api POST /api/models -d '{
 ```
 
 If you need cost tracking, provide all four sub-fields (use `0` as a placeholder for cache pricing if unknown).
+
+---
+
+## `provider_call({ substituteBody: true })` silently dropped — placeholders forwarded literally
+
+**Symptom**: a custom-auth provider with `{ email, password }` credentials, an agent calling `provider_call({ providerId, method:"POST", target:"...", body:'{"login":"{{email}}","password":"{{password}}"}', substituteBody: true })`. The body lands upstream with placeholders **untouched**:
+
+```json
+{ "json": { "login": "{{email}}", "password": "{{password}}" } }
+```
+
+instead of `{"login":"alice@example.com","password":"PWD-12345"}`. Reproducible on **both** local self-hosted and cloud (`https://app.appstrate.com`).
+
+**Discriminating test**: the same request with a placeholder in a **header** (`X-Email: {{email}}`) substitutes correctly. So `fetchCredentials` works, `substituteVars` works — only the body path is broken.
+
+**Root cause** — schema inconsistency across 3 layers:
+1. Sidecar declares `substituteBody?: boolean`, parses it, performs conditional substitution. ✓
+2. Resolver agent-side (`runtime-pi/mcp/provider-resolver.ts`) does NOT propagate `req.substituteBody` to the MCP args. ✗
+3. AFPS runtime schema (`packages/afps-runtime/.../provider-tool.ts`) does NOT declare `substituteBody`. Zod safeParse strips it before it reaches the resolver. ✗
+
+So the sidecar never sees the flag, falls into the buffered body branch without substitution, forwards literal placeholders. Headers and URL substitution still work because they're automatic in the sidecar (not opt-in).
+
+**Implication**: **no OSS Appstrate agent can do a programmatic `username/password` login via `substituteBody` today without the platform patch.** PR #363 ([appstrate/appstrate#363](https://github.com/appstrate/appstrate/pull/363)) — 2 lines across 2 files — fixes this. Tracks as `BUGS-EVO §2.6` upstream.
+
+**Workaround until merged** — for usages where this flag is required (ClassDojo, Amisgest, OrgaBusiness, any SaaS demanding a JSON `{email, password}` login instead of a Bearer header), **the platform patch is mandatory**. No agent-side workaround is viable: putting credentials in plain text in agent config defeats the security model (the LLM sees the secret), and pre-substituting client-side requires reading the credential from the runner's env which providers do not expose.
+
+**For tools that wrap such providers**, defensively check the response for a placeholder echo (`{{email}}` literal in upstream error logs or auth-failure responses) and fail loud with a typed error pointing to this issue, rather than retrying or silently corrupting downstream state.

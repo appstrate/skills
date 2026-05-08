@@ -24,4 +24,8 @@ zip -r "$OUTPUT" . -x '.*' -x '__MACOSX/*' -x '*.DS_Store'
 
 echo "Packed: $OUTPUT"
 echo "Files included:"
-unzip -l "$OUTPUT" | tail -n +4 | head -n -2
+# Strip the first 3 header lines and the last 2 summary lines.
+# Portable across GNU and BSD (macOS) — `head -n -2` is GNU-only,
+# and `sed '1,3d;$d;$d'` only removes one trailing line (sed does
+# not re-evaluate `$` after deletion).
+unzip -l "$OUTPUT" | awk 'NR>3{a[++n]=$0}END{for(i=1;i<=n-2;i++)print a[i]}'
