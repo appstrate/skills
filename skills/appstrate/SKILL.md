@@ -298,6 +298,8 @@ appstrate api POST '/api/connections/connect/@scope/name/api-key' \
 
 Manifest fields, `PROVIDER.md` template guidance, the camelCase `apiKey` body, and the warning against `POST /api/providers` flat creation: `references/manifest-schema.md` > "Provider Fields".
 
+**Choosing the right `authMode` + bootstrap pattern for a new SaaS** — decision table (probe symptoms → pattern), pattern recipes (single-POST, ROPC, multi-step CAS, magic-link, static cookies), and anti-bot escalation ladder: `references/auth-decision-tree.md`. Read this BEFORE writing the manifest for a custom provider.
+
 ## Data Model: input vs config vs state vs memory vs output
 
 Five distinct mechanisms, different persistence semantics. Full conceptual breakdown + examples: `references/concepts.md` (skill-local) and [/docs/features/memory](https://appstrate.com/docs/features/memory) + [/docs/features/runs](https://appstrate.com/docs/features/runs).
