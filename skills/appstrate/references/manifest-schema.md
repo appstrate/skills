@@ -229,7 +229,7 @@ Root field is `definition` with `authMode`. Auth-specific fields are **nested un
 
 ### Always on `definition` (root)
 
-- `authMode`: `"oauth2" | "oauth1" | "api_key" | "basic" | "custom"` (required)
+- `authMode`: `"oauth2" | "oauth1" | "api_key" | "basic" | "custom" | "password"` (required)
 - `authorizedUris`: `string[]` — URL patterns with `*` wildcards; the sidecar rejects outgoing requests that don't match
 - `allowAllUris`: `boolean` — bypass the URI whitelist (use with caution)
 - `availableScopes`: `[{ value, label }]` — scope catalog for the connection form
@@ -246,6 +246,7 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
 | `oauth2` | `definition.oauth2` | `authorizationUrl`, `tokenUrl` | `refreshUrl`, `defaultScopes`, `scopeSeparator`, `pkceEnabled`, `tokenAuthMethod`, `tokenContentType`, `authorizationParams`, `tokenParams` |
 | `oauth1` | `definition.oauth1` | `requestTokenUrl`, `authorizationUrl`, `accessTokenUrl` | `authorizationParams` |
 | `api_key` / `basic` / `custom` | `definition.credentials` | `schema` (JSON Schema for the credential form) | `fieldName` (which schema property holds the secret used in `{{variable}}` substitution) |
+| `password` | `definition.password` + `definition.credentials` | `tokenUrl`, `tokenBody`, `accessTokenPath` (under `password`) ; `schema` (under `credentials`) | `tokenContentType`, `tokenHeaders`, `refreshTokenPath`, `expiresInPath`, `claims`, `extraInjectedHeaders`, `refreshBody` (all under `password`) |
 
 ### Canonical example (OAuth2, from real @appstrate/slack)
 
@@ -288,6 +289,72 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
   }
 }
 ```
+
+### Canonical example (`password` / Resource Owner Password Credentials grant)
+
+> **Appstrate-fork extension to AFPS (not yet upstream).** Requires a sidecar built from `bugs-evos-oli`. Use it for reverse-engineered SaaS providers (no public OAuth) where you'd otherwise drop into `authMode: "custom"` and risk LLM placeholder mask-substitution — see `references/prompt-writing.md` §"Placeholder Semantics" for that pitfall. The sidecar handles login, JWT decode, claim extraction, header injection, and refresh end-to-end; the agent LLM just calls authenticated endpoints.
+
+```json
+{
+  "definition": {
+    "authMode": "password",
+    "credentials": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "email":    { "type": "string", "format": "email" },
+          "password": { "type": "string", "format": "password" }
+        },
+        "required": ["email", "password"]
+      }
+    },
+    "credentialHeaderName": "Authorization",
+    "credentialHeaderPrefix": "Bearer ",
+    "password": {
+      "tokenUrl": "https://serviceapp.amisgest.ca/8_2/token",
+      "tokenContentType": "application/x-www-form-urlencoded",
+      "tokenHeaders": {
+        "User-Agent": "Mozilla/5.0 ...",
+        "Origin": "https://app.example.com"
+      },
+      "tokenBody": {
+        "grant_type": "password",
+        "username": "{{credentials.email}}",
+        "password": "{{credentials.password}}",
+        "client_id": "<public-client-id>",
+        "device_id": "{{auto.deviceId}}"
+      },
+      "accessTokenPath": "$.access_token",
+      "refreshTokenPath": "$.refresh_token",
+      "expiresInPath": "$.expires_in",
+      "claims": {
+        "personId": "$.access_token | jwt | $.AUTHENTICATION_APP[0].personId"
+      },
+      "extraInjectedHeaders": {
+        "personid": "{{claims.personId}}"
+      },
+      "refreshBody": {
+        "grant_type": "refresh_token",
+        "refresh_token": "{{refresh_token}}",
+        "client_id": "<public-client-id>",
+        "device_id": "{{auto.deviceId}}"
+      }
+    },
+    "authorizedUris": ["https://serviceapp.amisgest.ca/**"]
+  }
+}
+```
+
+**Placeholders** (resolved server-side at bootstrap / refresh / per-call — agent LLM never sees the values):
+
+- `{{credentials.<field>}}` — from the user's stored credentials. Valid in `tokenBody`, `tokenHeaders`, `refreshBody`.
+- `{{auto.deviceId}}` — fresh UUID per run, stable across refresh. Same scope.
+- `{{refresh_token}}` — currently-cached refresh token. Only in `refreshBody`.
+- `{{claims.<name>}}` — extracted from a `claims` JSONPath at bootstrap. Only in `extraInjectedHeaders`.
+
+**JSONPath subset:** `$`, `.foo`, `[N]`, `["key"]`, plus the `| jwt |` pipe that decodes the middle segment between two sub-paths. JSON-encoded string claims (like Amisgest's `AUTHENTICATION_APP`) auto-reparse.
+
+**Refresh policy:** when `refreshBody` is declared and the response carries a refresh token, the sidecar refreshes preemptively (within 60s of `expiresIn`) and on 401 from upstream. Reuses the same `deviceId`, `tokenUrl`, `tokenContentType`, and `tokenHeaders` as bootstrap.
 
 ### Provider package files
 

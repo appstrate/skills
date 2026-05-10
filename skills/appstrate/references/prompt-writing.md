@@ -5,6 +5,7 @@
 - [Container Environment](#container-environment)
 - [Auto-Injected Sections](#auto-injected-sections)
 - [Sidecar Proxy Protocol](#sidecar-proxy-protocol)
+- [Placeholder Semantics — `{{var}}` vs `<MARKER>`](#placeholder-semantics--var-vs-marker)
 - [Recommended Structure](#recommended-structure)
 - [Memory](#memory-scopes)
 - [Incremental Processing](#incremental-processing)
@@ -74,6 +75,66 @@ curl -s "$SIDECAR_URL/proxy" \
 - Sidecar errors: `{ "error": "..." }` with 4xx/5xx
 
 Public APIs (no auth): call directly, no sidecar needed.
+
+## Placeholder Semantics — `{{var}}` vs `<MARKER>`
+
+Two superficially-similar placeholder conventions with **opposite** semantics coexist in `authMode: "custom"` provider login bodies. Confusing them silently breaks the call — the LLM masks `{{email}}` as `<USERNAME>`, the sidecar finds no `{{...}}` left to substitute, and the upstream receives the literal mask. Symptom: `502 invalid_grant` / `401 INVALID_CREDENTIALS` while curl direct works.
+
+**Scope** — only `authMode: "custom"`. The 4 other modes (`oauth2`, `oauth1`, `api_key`, `basic`) inject credentials via header server-side; the LLM never touches placeholders. Custom shows up on reverse-engineered SaaS (no public OAuth — ClassDojo, Amisgest, etc.) where the agent must construct a `POST /token` body manually.
+
+### `{{var}}` — server-side substitution, MUST stay literal
+
+The sidecar replaces every `{{var}}` in the body with `credentials.var` when `substituteBody: true`. The agent never sees the real values. **Keep the placeholders intact character-for-character.**
+
+```typescript
+// ✅ Correct
+provider_call({
+  body: "grant_type=password&username={{email}}&password={{password}}&...",
+  substituteBody: true
+})
+
+// ❌ Wrong — agent self-substituted with masks → upstream gets literal `<USERNAME>` → 401/502
+provider_call({
+  body: "grant_type=password&username=<USERNAME>&password=<PASSWORD>&...",
+  substituteBody: true
+})
+```
+
+### `<MARKER>` — agent-computed, MUST be replaced before the call
+
+Angle-bracketed UPPERCASE names (`<FRESH_DEVICE_ID>`, `<ACCESS_TOKEN>`, `<MONTH_FOLDER_ID>`) are markers the agent replaces with a value it computes (UUID, token from a previous response, resolved ID).
+
+```typescript
+// ✅ Correct — agent replaces the marker
+body: "...&device_id=appstrate-2026-05-09T15-41-41-0dc4&..."
+
+// ❌ Wrong — marker left literal
+body: "...&device_id=<FRESH_DEVICE_ID>&..."
+```
+
+### Verbatim CRITICAL block to embed
+
+Drop this in the prompt or the provider's `PROVIDER.md` whenever both conventions interpolate the same body:
+
+```md
+> **CRITICAL — placeholder semantics:**
+> - `{{email}}` / `{{password}}` are SERVER-SIDE. Keep them character-for-character.
+>   The sidecar substitutes via `substituteBody: true`. NEVER replace with masks
+>   (`<USERNAME>`, `<MASKED>`) or actual values.
+> - `<FRESH_DEVICE_ID>` is AGENT-SIDE. Replace with a value YOU compute
+>   (e.g. `uuidgen` via bash tool).
+```
+
+**Best home for the block: the provider's `PROVIDER.md`** — auto-injected into every consuming agent's system prompt, single source of truth.
+
+### Diagnose after the fact
+
+```bash
+appstrate api GET /api/runs/{runId}/logs \
+  | jq -r '.[] | select(.data.tool == "provider_call") | .data.args.body'
+```
+
+If `username=<USERNAME>` (or any angle-bracket form) appears where `{{email}}` was expected, the agent self-substituted. Fix the prompt or the provider's `PROVIDER.md`.
 
 ## Recommended Structure
 
