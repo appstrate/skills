@@ -70,6 +70,19 @@ Stream progress: `GET /api/realtime/runs/{runId}` (SSE). Or poll `GET /api/runs/
 | 422 | Idempotency body mismatch |
 | 429 | Rate limit (see `INLINE_RUN_LIMITS`) |
 
+### Routing per-provider through a non-default connection profile (`providerProfiles`)
+
+The caller's default connection profile binds every provider in the run to its credentials by default. When you need a *different* profile for one provider only — typical for multi-account setups (two Gmail mailboxes, several Fathom accounts, a personal vs. work Slack) — pass `providerProfiles` as a `{providerId: profileUUID}` map. Only the listed providers are overridden; the rest stay on the default profile.
+
+```bash
+appstrate api POST /api/runs/inline \
+  -H 'Content-Type: application/json' \
+  -d '{ "manifest": {...}, "prompt": "...", "input": {},
+        "providerProfiles": { "@appstrate/gmail": "cc9981ba-..." } }'
+```
+
+List available profile UUIDs with `appstrate api GET /api/connection-profiles`. The same `providerProfiles` field is accepted by the persistent run endpoint `POST /api/agents/{scope}/{name}/run` (identical shape) and is honored by `POST /api/agents/{scope}/{name}/schedules` for scheduled runs.
+
 ## Dry-run validation
 
 Same body, no side effects. Lets you iterate on a manifest without burning runs or leaving phantom rows.
