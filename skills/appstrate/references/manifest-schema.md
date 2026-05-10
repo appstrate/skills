@@ -319,10 +319,10 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
       },
       "tokenBody": {
         "grant_type": "password",
-        "username": "{{credentials.email}}",
-        "password": "{{credentials.password}}",
+        "username": "{{email}}",
+        "password": "{{password}}",
         "client_id": "<public-client-id>",
-        "device_id": "{{auto.deviceId}}"
+        "device_id": "{{deviceId}}"
       },
       "accessTokenPath": "$.access_token",
       "refreshTokenPath": "$.refresh_token",
@@ -331,13 +331,13 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
         "personId": "$.access_token | jwt | $.AUTHENTICATION_APP[0].personId"
       },
       "extraInjectedHeaders": {
-        "personid": "{{claims.personId}}"
+        "personid": "{{personId}}"
       },
       "refreshBody": {
         "grant_type": "refresh_token",
         "refresh_token": "{{refresh_token}}",
         "client_id": "<public-client-id>",
-        "device_id": "{{auto.deviceId}}"
+        "device_id": "{{deviceId}}"
       }
     },
     "authorizedUris": ["https://serviceapp.amisgest.ca/**"]
@@ -345,16 +345,42 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
 }
 ```
 
-**Placeholders** (resolved server-side at bootstrap / refresh / per-call — agent LLM never sees the values):
+**Placeholders** (all `{{name}}` flat, resolved server-side at bootstrap / refresh / per-call — agent LLM never sees the values). The sidecar merges four sources into a single namespace consumed by the standard `substituteVars` regex (`\w+`, no dots):
 
-- `{{credentials.<field>}}` — from the user's stored credentials. Valid in `tokenBody`, `tokenHeaders`, `refreshBody`.
-- `{{auto.deviceId}}` — fresh UUID per run, stable across refresh. Same scope.
-- `{{refresh_token}}` — currently-cached refresh token. Only in `refreshBody`.
-- `{{claims.<name>}}` — extracted from a `claims` JSONPath at bootstrap. Only in `extraInjectedHeaders`.
+- **credentials fields** (`{{email}}`, `{{password}}`, …) — straight from the user's `credentials.schema`. Valid in `tokenBody`, `tokenHeaders`, `refreshBody`, `extraInjectedHeaders`.
+- **`{{deviceId}}`** — fresh UUID per run, stable across refresh.
+- **`{{refresh_token}}`** — currently-cached refresh token (only meaningful in `refreshBody`).
+- **claim names** (`{{personId}}`, …) — extracted from `claims` JSONPath at bootstrap. Each key under `claims` becomes a flat placeholder of the same name.
+
+> **Do NOT use the dot-form** (`{{credentials.email}}`, `{{auto.deviceId}}`, `{{claims.X}}`) — the regex doesn't match dots, the substitution silently skips, the body lands upstream with the literal `{{...}}` and you get `401 invalid_grant`. Diagnose via sidecar `[curl-runner] dispatching … hasPlaceholder:true` log.
 
 **JSONPath subset:** `$`, `.foo`, `[N]`, `["key"]`, plus the `| jwt |` pipe that decodes the middle segment between two sub-paths. JSON-encoded string claims (like Amisgest's `AUTHENTICATION_APP`) auto-reparse.
 
 **Refresh policy:** when `refreshBody` is declared and the response carries a refresh token, the sidecar refreshes preemptively (within 60s of `expiresIn`) and on 401 from upstream. Reuses the same `deviceId`, `tokenUrl`, `tokenContentType`, and `tokenHeaders` as bootstrap.
+
+### `x-tlsClientByUrl` — per-URL curl bypass for JA3-fingerprinting upstreams
+
+> **Appstrate-fork extension to AFPS (not yet upstream).** Requires a sidecar built from `bugs-evos-oli`.
+
+Some Cloudflare-protected SaaS (Amisgest, Fizz/Okta, …) silently reject Bun/undici TLS fingerprints with `403` or `502` while accepting the same payload from `curl`. Add a `definition.x-tlsClientByUrl` rule list to route specific URLs through `curl` instead of the default Bun fetch:
+
+```json
+"definition": {
+  "authMode": "password",
+  "authorizedUris": ["https://serviceapp.amisgest.ca/**"],
+  "x-tlsClientByUrl": [
+    { "match": "https://serviceapp.amisgest.ca/8_2/token", "client": "curl" }
+  ]
+}
+```
+
+- `match` — exact URL or glob (`*`, `**`). First match wins.
+- `client` — only `"curl"` is supported.
+- Compatible with **any** `authMode`. The rule applies equally to `password`-mode bootstrap/refresh and to agent-issued `provider_call`s.
+- Streaming bodies fall back to fetch (curl can't stream a `ReadableStream`).
+- Default code path stays on Bun fetch — `curl` only spawns when a rule matches. No global TLS opt-out.
+
+Diagnose blocking via curl-vs-fetch differential: if `curl -X POST <url> -d '<body>'` from your machine works but the sidecar gets `403`/`502`, JA3 is the cause and this rule unblocks it.
 
 ### Provider package files
 
