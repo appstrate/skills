@@ -390,6 +390,8 @@ Practical implication: a TypeScript tool that bootstraps a session via a multi-s
 
 The jar is **run-scoped**: it resets when the sidecar is acquired for a new run. Long-lived session cookies are not persisted across runs by the sidecar — re-bootstrap on every run, or rely on `authMode: "password"` (which caches the bootstrapped session in `passwordSessions` for the run) for SaaS that fit the ROPC pattern.
 
+**Pre-flight GET for sticky-session load balancers**: SaaS behind an AWS ALB (or any L7 LB with cookie-based stickiness — `AWSALB`, `JSESSIONID` set BEFORE the app sees the request) silently reject a POST login when the LB stickiness cookie isn't primed: the POST lands on a different LB instance from the one that will hold the resulting Spring/Tomcat session, and the next authenticated call gets the login form back even though the POST returned 200. Fix in the bootstrap tool: do a `GET` on the login URL FIRST so the sidecar's jar receives the LB cookies, THEN `POST` credentials. Symptom is silent — diagnose by comparing the cookie jar after step 1 (should contain `AWSALB` / `JSESSIONID` from the GET) to after step 2.
+
 ### Provider package files
 
 An AFPS provider package MUST contain two files:
