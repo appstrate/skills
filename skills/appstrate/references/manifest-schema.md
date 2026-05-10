@@ -382,6 +382,14 @@ Some Cloudflare-protected SaaS (Amisgest, Fizz/Okta, …) silently reject Bun/un
 
 Diagnose blocking via curl-vs-fetch differential: if `curl -X POST <url> -d '<body>'` from your machine works but the sidecar gets `403`/`502`, JA3 is the cause and this rule unblocks it.
 
+### Session cookies — automatic capture across redirect chains
+
+The sidecar keeps a per-provider, per-run cookie jar. Every `Set-Cookie` returned by upstream — at the **final** hop AND at every intermediate hop of a 3xx redirect chain — is merged into that jar (de-duplicated by name). On the next `provider_call` to the same provider in the same run, the jar is replayed as the `Cookie` header automatically.
+
+Practical implication: a TypeScript tool that bootstraps a session via a multi-step login flow (e.g. CAS + OAuth + OIDC handoff with 3–4 redirects, like Kijiji or any classic SAML/CAS deployment) only needs to invoke its login chain once at the start of the run. All subsequent `provider_call`s authenticate automatically — no need to capture the Set-Cookie response headers, no need to template them back as a `Cookie` header on follow-up requests. Streaming bodies fall back to last-hop-only capture (a buffered body is required to replay across 307/308).
+
+The jar is **run-scoped**: it resets when the sidecar is acquired for a new run. Long-lived session cookies are not persisted across runs by the sidecar — re-bootstrap on every run, or rely on `authMode: "password"` (which caches the bootstrapped session in `passwordSessions` for the run) for SaaS that fit the ROPC pattern.
+
 ### Provider package files
 
 An AFPS provider package MUST contain two files:
