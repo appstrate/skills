@@ -229,7 +229,7 @@ Root field is `definition` with `authMode`. Auth-specific fields are **nested un
 
 ### Always on `definition` (root)
 
-- `authMode`: `"oauth2" | "oauth1" | "api_key" | "basic" | "custom" | "password"` (required)
+- `authMode`: `"oauth2" | "oauth1" | "api_key" | "basic" | "custom"` (required)
 - `authorizedUris`: `string[]` — URL patterns with `*` wildcards; the sidecar rejects outgoing requests that don't match
 - `allowAllUris`: `boolean` — bypass the URI whitelist (use with caution)
 - `availableScopes`: `[{ value, label }]` — scope catalog for the connection form
@@ -246,7 +246,8 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
 | `oauth2` | `definition.oauth2` | `authorizationUrl`, `tokenUrl` | `refreshUrl`, `defaultScopes`, `scopeSeparator`, `pkceEnabled`, `tokenAuthMethod`, `tokenContentType`, `authorizationParams`, `tokenParams` |
 | `oauth1` | `definition.oauth1` | `requestTokenUrl`, `authorizationUrl`, `accessTokenUrl` | `authorizationParams` |
 | `api_key` / `basic` / `custom` | `definition.credentials` | `schema` (JSON Schema for the credential form) | `fieldName` (which schema property holds the secret used in `{{variable}}` substitution) |
-| `password` | `definition.password` + `definition.credentials` | `tokenUrl`, `tokenBody`, `accessTokenPath` (under `password`) ; `schema` (under `credentials`) | `tokenContentType`, `tokenHeaders`, `refreshTokenPath`, `expiresInPath`, `claims`, `extraInjectedHeaders`, `refreshBody` (all under `password`) |
+
+> **`authMode: "password"` was proposed but rejected upstream** ([issue #457](https://github.com/appstrate/appstrate/issues/457)). For SaaS that exposes a clean ROPC `/token` endpoint, use `authMode: "custom"` + a tool TS that POSTs `grant_type=password&...&username={{email}}&password={{password}}` with `substituteBody: true` (now working since [PR #363](https://github.com/appstrate/appstrate/pull/363) merged). Store the resulting `{access_token, refresh_token, expires_at}` in the credentials via `@default/appstrate-self` PATCH, and inject `Authorization: Bearer …` via `credentialHeaderName/Prefix`. See `auth-decision-tree.md` §B / §C for the recipe.
 
 ### Canonical example (OAuth2, from real @appstrate/slack)
 
@@ -290,105 +291,26 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
 }
 ```
 
-### Canonical example (`password` / Resource Owner Password Credentials grant)
+### Canonical example (`custom` + tool TS bootstrap — replaces the rejected `password` mode)
 
-> **Appstrate-fork extension to AFPS (not yet upstream).** Requires a sidecar built from `bugs-evos-oli`. Use it for reverse-engineered SaaS providers (no public OAuth) where you'd otherwise drop into `authMode: "custom"` and risk LLM placeholder mask-substitution — see `references/prompt-writing.md` §"Placeholder Semantics" for that pitfall. The sidecar handles login, JWT decode, claim extraction, header injection, and refresh end-to-end; the agent LLM just calls authenticated endpoints.
+For reverse-engineered SaaS with a ROPC `/token` endpoint but no public OAuth, write a tool TS that POSTs the bootstrap request through the sidecar with `substituteBody: true`. Store the resulting tokens via `@default/appstrate-self` PATCH, then call subsequent endpoints with the standard `Authorization: Bearer …` header. The recipe and a full worked example are in `auth-decision-tree.md` §C and §F.
 
-```json
-{
-  "definition": {
-    "authMode": "password",
-    "credentials": {
-      "schema": {
-        "type": "object",
-        "properties": {
-          "email":    { "type": "string", "format": "email" },
-          "password": { "type": "string", "format": "password" }
-        },
-        "required": ["email", "password"]
-      }
-    },
-    "credentialHeaderName": "Authorization",
-    "credentialHeaderPrefix": "Bearer ",
-    "password": {
-      "tokenUrl": "https://serviceapp.amisgest.ca/8_2/token",
-      "tokenContentType": "application/x-www-form-urlencoded",
-      "tokenHeaders": {
-        "User-Agent": "Mozilla/5.0 ...",
-        "Origin": "https://app.example.com"
-      },
-      "tokenBody": {
-        "grant_type": "password",
-        "username": "{{email}}",
-        "password": "{{password}}",
-        "client_id": "<public-client-id>",
-        "device_id": "{{deviceId}}"
-      },
-      "accessTokenPath": "$.access_token",
-      "refreshTokenPath": "$.refresh_token",
-      "expiresInPath": "$.expires_in",
-      "claims": {
-        "personId": "$.access_token | jwt | $.AUTHENTICATION_APP[0].personId"
-      },
-      "extraInjectedHeaders": {
-        "personid": "{{personId}}"
-      },
-      "refreshBody": {
-        "grant_type": "refresh_token",
-        "refresh_token": "{{refresh_token}}",
-        "client_id": "<public-client-id>",
-        "device_id": "{{deviceId}}"
-      }
-    },
-    "authorizedUris": ["https://serviceapp.amisgest.ca/**"]
-  }
-}
-```
+### TLS-fingerprint blocked upstreams (JA3 / Cloudflare bot tier)
 
-**Placeholders** (all `{{name}}` flat, resolved server-side at bootstrap / refresh / per-call — agent LLM never sees the values). The sidecar merges four sources into a single namespace consumed by the standard `substituteVars` regex (`\w+`, no dots):
+Some Cloudflare-protected SaaS silently reject Bun/undici TLS fingerprints with `403`/`502` while accepting the same payload from `curl` or a real browser. There is **no in-sidecar bypass** in upstream Appstrate main: a per-URL `curl`-client rerouting extension (`x-tlsClientByUrl`) was proposed but rejected — see [issue #458](https://github.com/appstrate/appstrate/issues/458). Pierre's stance is that JA3 bypass should live in tenant-side infrastructure (proxy or headless browser), not in the sidecar.
 
-- **credentials fields** (`{{email}}`, `{{password}}`, …) — straight from the user's `credentials.schema`. Valid in `tokenBody`, `tokenHeaders`, `refreshBody`, `extraInjectedHeaders`.
-- **`{{deviceId}}`** — fresh UUID per run, stable across refresh.
-- **`{{refresh_token}}`** — currently-cached refresh token (only meaningful in `refreshBody`).
-- **claim names** (`{{personId}}`, …) — extracted from `claims` JSONPath at bootstrap. Each key under `claims` becomes a flat placeholder of the same name.
+Diagnose JA3 blocking by curl-vs-fetch differential: `curl -X POST <url> -d '<body>'` from your machine works → the sidecar gets `403`/`502`. Once identified, the two viable mitigations are:
 
-> **Do NOT use the dot-form** (`{{credentials.email}}`, `{{auto.deviceId}}`, `{{claims.X}}`) — the regex doesn't match dots, the substitution silently skips, the body lands upstream with the literal `{{...}}` and you get `401 invalid_grant`. Diagnose via sidecar `[curl-runner] dispatching … hasPlaceholder:true` log.
-
-**JSONPath subset:** `$`, `.foo`, `[N]`, `["key"]`, plus the `| jwt |` pipe that decodes the middle segment between two sub-paths. JSON-encoded string claims (like Amisgest's `AUTHENTICATION_APP`) auto-reparse.
-
-**Refresh policy:** when `refreshBody` is declared and the response carries a refresh token, the sidecar refreshes preemptively (within 60s of `expiresIn`) and on 401 from upstream. Reuses the same `deviceId`, `tokenUrl`, `tokenContentType`, and `tokenHeaders` as bootstrap.
-
-### `x-tlsClientByUrl` — per-URL curl bypass for JA3-fingerprinting upstreams
-
-> **Appstrate-fork extension to AFPS (not yet upstream).** Requires a sidecar built from `bugs-evos-oli`.
-
-Some Cloudflare-protected SaaS (Amisgest, Fizz/Okta, …) silently reject Bun/undici TLS fingerprints with `403` or `502` while accepting the same payload from `curl`. Add a `definition.x-tlsClientByUrl` rule list to route specific URLs through `curl` instead of the default Bun fetch:
-
-```json
-"definition": {
-  "authMode": "password",
-  "authorizedUris": ["https://serviceapp.amisgest.ca/**"],
-  "x-tlsClientByUrl": [
-    { "match": "https://serviceapp.amisgest.ca/8_2/token", "client": "curl" }
-  ]
-}
-```
-
-- `match` — exact URL or glob (`*`, `**`). First match wins.
-- `client` — only `"curl"` is supported.
-- Compatible with **any** `authMode`. The rule applies equally to `password`-mode bootstrap/refresh and to agent-issued `provider_call`s.
-- Streaming bodies fall back to fetch (curl can't stream a `ReadableStream`).
-- Default code path stays on Bun fetch — `curl` only spawns when a rule matches. No global TLS opt-out.
-
-Diagnose blocking via curl-vs-fetch differential: if `curl -X POST <url> -d '<body>'` from your machine works but the sidecar gets `403`/`502`, JA3 is the cause and this rule unblocks it.
+- **Residential proxy** for cookie-only bot tiers — see `auth-decision-tree.md` §4 step 2.
+- **Real headless browser via FlareSolverr** for full bot management (Cloudflare with JS challenge, DataDome, Akamai) — see `references/flaresolverr-pattern.md`.
 
 ### Session cookies — automatic capture across redirect chains
 
 The sidecar keeps a per-provider, per-run cookie jar. Every `Set-Cookie` returned by upstream — at the **final** hop AND at every intermediate hop of a 3xx redirect chain — is merged into that jar (de-duplicated by name). On the next `provider_call` to the same provider in the same run, the jar is replayed as the `Cookie` header automatically.
 
-Practical implication: a TypeScript tool that bootstraps a session via a multi-step login flow (e.g. CAS + OAuth + OIDC handoff with 3–4 redirects, like Kijiji or any classic SAML/CAS deployment) only needs to invoke its login chain once at the start of the run. All subsequent `provider_call`s authenticate automatically — no need to capture the Set-Cookie response headers, no need to template them back as a `Cookie` header on follow-up requests. Streaming bodies fall back to last-hop-only capture (a buffered body is required to replay across 307/308).
+Practical implication: a TypeScript tool that bootstraps a session via a multi-step login flow (CAS + OAuth + OIDC handoff with 3–4 redirects, classic SAML/CAS deployments) only needs to invoke its login chain once at the start of the run. All subsequent `provider_call`s authenticate automatically — no need to capture the Set-Cookie response headers, no need to template them back as a `Cookie` header on follow-up requests. Streaming bodies fall back to last-hop-only capture (a buffered body is required to replay across 307/308).
 
-The jar is **run-scoped**: it resets when the sidecar is acquired for a new run. Long-lived session cookies are not persisted across runs by the sidecar — re-bootstrap on every run, or rely on `authMode: "password"` (which caches the bootstrapped session in `passwordSessions` for the run) for SaaS that fit the ROPC pattern.
+The jar is **run-scoped**: it resets when the sidecar is acquired for a new run. Long-lived session cookies are not persisted across runs by the sidecar — re-bootstrap on every run, or persist a refresh token in the provider's credentials via `@default/appstrate-self` PATCH (see `auth-decision-tree.md` §C "Multi-step CAS / OAuth handoff" for that pattern).
 
 **Pre-flight GET for sticky-session load balancers**: SaaS behind an AWS ALB (or any L7 LB with cookie-based stickiness — `AWSALB`, `JSESSIONID` set BEFORE the app sees the request) silently reject a POST login when the LB stickiness cookie isn't primed: the POST lands on a different LB instance from the one that will hold the resulting Spring/Tomcat session, and the next authenticated call gets the login form back even though the POST returned 200. Fix in the bootstrap tool: do a `GET` on the login URL FIRST so the sidecar's jar receives the LB cookies, THEN `POST` credentials. Symptom is silent — diagnose by comparing the cookie jar after step 1 (should contain `AWSALB` / `JSESSIONID` from the GET) to after step 2.
 

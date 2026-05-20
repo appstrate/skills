@@ -80,7 +80,7 @@ Public APIs (no auth): call directly, no sidecar needed.
 
 Two superficially-similar placeholder conventions with **opposite** semantics coexist in `authMode: "custom"` provider login bodies. Confusing them silently breaks the call — the LLM masks `{{email}}` as `<USERNAME>`, the sidecar finds no `{{...}}` left to substitute, and the upstream receives the literal mask. Symptom: `502 invalid_grant` / `401 INVALID_CREDENTIALS` while curl direct works.
 
-**Scope** — only `authMode: "custom"`. The 4 other modes (`oauth2`, `oauth1`, `api_key`, `basic`) inject credentials via header server-side; the LLM never touches placeholders. Custom shows up on reverse-engineered SaaS (no public OAuth — ClassDojo, Amisgest, etc.) where the agent must construct a `POST /token` body manually.
+**Scope** — only `authMode: "custom"`. The 4 other modes (`oauth2`, `oauth1`, `api_key`, `basic`) inject credentials via header server-side; the LLM never touches placeholders. Custom shows up on reverse-engineered SaaS (no public OAuth, undocumented token endpoints) where the agent must construct a `POST /token` body manually.
 
 ### `{{var}}` — server-side substitution, MUST stay literal
 

@@ -8,6 +8,7 @@ Read this when authoring a new `@scope/name` provider for a SaaS that doesn't al
 - [2. Decision table](#2-decision-table)
 - [3. Pattern recipes](#3-pattern-recipes)
 - [4. Anti-bot escalation ladder](#4-anti-bot-escalation-ladder)
+- [5. When even the ladder isn't enough](#5-when-even-the-ladder-isnt-enough)
 
 ---
 
@@ -29,15 +30,14 @@ For SPAs / OIDC flows, log in once with **Chrome DevTools → Network** open, th
 
 | Symptom from probe | Pattern | authMode |
 |---|---|---|
-| `POST /token` → JSON `{access_token, refresh_token, expires_in}`, no JS challenge, optional JWT claims to extract | **A. Server-side ROPC bootstrap** | `password` |
+| `POST /token` → JSON `{access_token, refresh_token, expires_in}`, no JS challenge, optional JWT claims to extract | **A. Tool-side ROPC bootstrap** | `custom` + tool TS that POSTs the token request with `substituteBody:true`, persists tokens via `@default/appstrate-self` |
 | Form `POST /login` with `j_username`/`username` + `password` → 302 + Set-Cookie session, single round-trip | **B. Single-POST with cookie capture** | `custom` + tool TS wrapping one `provider_call` |
 | Form `POST /login` → CAS/SAML/OIDC handoff (3+ redirects, ticket → code → cookie), no captcha | **C. Multi-step CAS/OIDC bootstrap** | `custom` + tool TS chaining 3-6 `provider_call`s |
 | Magic-link-by-email is the only viable path (password login wants a JS-computed challenge the sidecar can't generate, but the magic-link redemption is a plain GET) | **D. Email-orchestrated bootstrap** | `custom` + tool TS that triggers the email then polls `@appstrate/gmail` |
 | Cookies expire weekly+ AND no automated bootstrap is possible (captcha at every login attempt, browserinfo3, etc.) | **E. Static cookie credentials (manual refresh)** | `custom` with cookies as credentials, captured by hand via Chrome DevTools |
 | Login UI is fine in a browser but every curl/Bun/undici call gets `403 Cloudflare` / `429` regardless of credentials | **F. ASN-blocked SaaS** — orthogonal to pattern choice. Wire a residential rotating proxy via `PROXY_URL` (cascade: per-agent → org default → env), or accept manual cookie refresh | any |
 
-**Two bonus knobs that can apply to any pattern**:
-- **TLS fingerprint blocked** (200 in browser, 403/502 from sidecar even with the same cookies): add `definition.x-tlsClientByUrl: [{match, client: "curl"}]` for the affected URLs. See `manifest-schema.md` §`x-tlsClientByUrl`.
+**Bonus knob that can apply to any pattern**:
 - **AWS ALB / sticky-session backends**: do a pre-flight `GET /login.jsa` from the bootstrap tool BEFORE the `POST` — primes `AWSALB`/`JSESSIONID` so the POST hits the same backend instance. See `manifest-schema.md` §"Session cookies".
 
 ---
@@ -46,13 +46,13 @@ For SPAs / OIDC flows, log in once with **Chrome DevTools → Network** open, th
 
 Each recipe links to the canonical example in `manifest-schema.md` rather than duplicating manifest JSON here.
 
-### A. Server-side ROPC (`authMode: "password"`)
+### A. Tool-side ROPC (`authMode: "custom"` + tool TS bootstrap)
 
-The sidecar bootstraps + refreshes + injects headers — the LLM never touches credentials. Best when the SaaS exposes a clean `/token` JSON endpoint and (optionally) a refresh token.
+For SaaS that exposes a clean `/token` JSON endpoint (RFC 6749 ROPC). The tool TS POSTs `grant_type=password&username={{email}}&password={{password}}&...` with `substituteBody: true` — the sidecar substitutes server-side, LLM never sees credentials. The tool parses `{access_token, refresh_token, expires_in}`, decodes JWT claims if needed, then writes the tokens back to the provider's credentials via `@default/appstrate-self` PATCH. Subsequent `provider_call`s carry `Authorization: Bearer <access_token>` via `credentialHeaderName/Prefix`.
 
-- Manifest shape: see `manifest-schema.md` § "Canonical example (`password` / Resource Owner Password Credentials grant)".
-- JWT claim extraction (e.g. `personId`) via the `claims` map + simplified JSONPath subset (`$`, `.foo`, `[N]`, `["key"]`, `| jwt |` pipe).
-- No tool TS required — the agent calls `provider_call` and the sidecar handles auth transparently.
+A companion `<saas>-token-refresh` tool handles renewal: GET current creds → if `expires_at < now+60s`, POST `grant_type=refresh_token` → PATCH back.
+
+> A `password` authMode that would have done all this server-side was [proposed and rejected upstream](https://github.com/appstrate/appstrate/issues/457) — Pierre's stance is that the `custom`-mode tool pattern above is the canonical solution. The tool stays small (~80 lines) and the LLM never sees credentials thanks to `substituteBody`.
 
 ### B. Single-POST + cookie capture (`authMode: "custom"` + tool)
 
@@ -70,7 +70,7 @@ For SaaS where the form login fans out into 3-6 redirects (OIDC `authorize` → 
 2. `POST /api/auth/signin/<provider>` or equivalent — primes next-auth state cookies, redirects to the actual CAS form.
 3. Parse hidden `execution` / `tmSessionId` / `service` from the form HTML.
 4. `POST <CAS-login-url>` with credentials substituted server-side via `{{email}}` / `{{password}}` placeholders.
-5. The sidecar follows the 302 chain; cookies of every hop are captured (BUGS-EVO §2.9).
+5. The sidecar follows the 302 chain; cookies of every hop are captured into the per-run cookie jar — see `manifest-schema.md` §"Session cookies" for the redirect-capture semantics.
 6. Validate via the SaaS's `/api/auth/session` or `/login/home` equivalent.
 
 The cookie-jar persistence across `provider_call`s within the same run is what makes this pattern viable — without the redirect-capture fix, cookies set on the `/callback/...` hop are dropped before the final 302.
@@ -100,10 +100,26 @@ The agent prompt or a wrapper tool injects `headers: { "Cookie": "{{cookie1_name
 
 When a pattern works in `curl` but fails in the sidecar:
 
-1. **Set realistic headers** — `User-Agent: Mozilla/5.0 …`, `Accept`, `Accept-Language`, `Origin`, `Referer`. CORS-strict APIs (e.g. `capi.craigslist.org`) reject without `Origin` matching their allowlist (silent 502).
-2. **Flip the URL to curl client** via `x-tlsClientByUrl: [{match, client:"curl"}]` — bypasses Bun's TLS fingerprint when the SaaS does JA3-only blocking. Doesn't help against Cloudflare full bot management.
-3. **Switch to a residential proxy** via `PROXY_URL` env or per-agent override — the only fix for ASN-blacklist bot management (Cloudflare with bot tier, Akamai, DataDome). Datacenter / VPN exit nodes are blocked outright.
-4. **Headless browser** — out of scope for the sidecar today. Last resort would be a custom tool that shells out to Playwright / Chromium in a separate runtime image. Not worth it for ≤ 2 SaaS — switch SaaS instead.
+1. **Set realistic headers** — `User-Agent: Mozilla/5.0 …`, `Accept`, `Accept-Language`, `Origin`, `Referer`. CORS-strict APIs reject without `Origin` matching their allowlist (silent 502).
+2. **Switch to a residential proxy** via `PROXY_URL` env or per-agent override — the only fix for ASN-blacklist bot management (Cloudflare with bot tier, Akamai, DataDome). Datacenter / VPN exit nodes are blocked outright.
+3. **Real headless browser via FlareSolverr** — for the cases the steps above can't reach (SameSite-strict OIDC callbacks, JS-computed PoW/fingerprint, in-page-fetch-only JSON endpoints, JA3-fingerprint blocking that the sidecar's Bun fetch can't disguise). See §5.
+
+---
+
+## 5. When even the ladder isn't enough
+
+Some symptoms are unfixable without running a real browser:
+
+| Symptom | Why the ladder doesn't help |
+|---|---|
+| `error=Callback` on a clean next-auth flow (login form POST succeeds, callback hop rejects the session) | Bun fetch drops `SameSite=Lax` cookies on cross-host redirects (`id.example.com → www.example.com`). Headers + proxy don't change that. |
+| Endpoint returns the homepage HTML instead of JSON despite a perfect `Accept: application/vnd.foo+json` | Chromium overrides `Accept` on navigation. Only an in-page `fetch()` respects it. |
+| POST CAS login lands on vendor "Something went wrong" page even with valid creds + tokens | Vendor's risk engine wants ThreatMetrix-style async fingerprint that requires running JS. |
+| Login form requires `Sec-Fetch-Site: same-origin` (ASP.NET Identity, Auth0 universal login, AWS Cognito hosted UI) | Curl-equivalent POST is always `cross-site`. Need a real form submit from the actual origin. |
+
+The pattern that handles these is `FlareSolverr` (Chromium-backed proxy) + the `credentials-substitution-cross-target` and `login → sessionId → fetch` patterns. See **`references/flaresolverr-pattern.md`** for the full architecture, setup, 3 local patches (Sec-Fetch-Site, custom headers, `evalScript`), and caveats (non-upstream, infra cost, Cloud-incompatible).
+
+This is an **escape hatch**: only reach for it when one of the symptoms above is your actual blocker. The other 90% of SaaS work fine with the sidecar.
 
 ---
 

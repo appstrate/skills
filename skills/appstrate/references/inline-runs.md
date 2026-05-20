@@ -72,7 +72,7 @@ Stream progress: `GET /api/realtime/runs/{runId}` (SSE). Or poll `GET /api/runs/
 
 ### Routing per-provider through a non-default connection profile (`providerProfiles`)
 
-The caller's default connection profile binds every provider in the run to its credentials by default. When you need a *different* profile for one provider only — typical for multi-account setups (two Gmail mailboxes, several Fathom accounts, a personal vs. work Slack) — pass `providerProfiles` as a `{providerId: profileUUID}` map. Only the listed providers are overridden; the rest stay on the default profile.
+The caller's default connection profile binds every provider in the run to its credentials by default. When you need a *different* profile for one provider only — typical for multi-account setups (two Gmail mailboxes, several accounts of the same SaaS, a personal vs. work Slack) — pass `providerProfiles` as a `{providerId: profileUUID}` map. Only the listed providers are overridden; the rest stay on the default profile.
 
 ```bash
 appstrate api POST /api/runs/inline \

@@ -34,21 +34,21 @@ defaultProfile = "prod"
 [profile.prod]
 instance = "https://appstrate.example.com"
 userId = "usr_abc123"
-email = "olivier@tractr.net"
-orgId = "org_tractr"
+email = "you@example.com"
+orgId = "org_example"
 appId = "app_default"
 
 [profile.local]
 instance = "http://localhost:3000"
 userId = "usr_xyz789"
-email = "olivier@tractr.net"
+email = "you@example.com"
 orgId = "org_local"
 appId = "app_default"
 
 [profile.dev]
 instance = "https://dev.appstrate.internal"
 userId = "usr_dev456"
-email = "olivier@tractr.net"
+email = "you@example.com"
 orgId = "org_dev"
 # appId omitted → --no-app was used at login, caller must pass X-App-Id explicitly
 ```
@@ -184,7 +184,7 @@ Each invocation goes through the CLI, which picks the right bearer token + org/a
 1. **`APPSTRATE_PROFILE` beats `defaultProfile`** — if you export it for a quick test, remember to `unset APPSTRATE_PROFILE` after, or the override sticks across your whole session.
 2. **Profile file never contains secrets** — it's safe to `cat` or commit-scan. Tokens are in the keyring, not the file. Still, keep `~/.config/appstrate/` at `chmod 700` to hide profile names + org IDs.
 3. **Keyring entry orphans** — deleting `config.toml` manually leaves keyring entries behind. Use `appstrate logout --profile <name>` for a clean removal.
-4. **Cross-org within one instance** — each profile pins one `orgId`. To target a different org on the same URL, either `appstrate org switch <other>` (mutates the profile) or create a second profile (e.g., `prod-tractr`, `prod-lakaz`) via `appstrate login --profile prod-lakaz`.
+4. **Cross-org within one instance** — each profile pins one `orgId`. To target a different org on the same URL, either `appstrate org switch <other>` (mutates the profile) or create a second profile (e.g., `prod-org-a`, `prod-org-b`) via `appstrate login --profile prod-org-b`.
 5. **Cross-app within one org** — same logic: `appstrate app switch <other>` mutates, or multi-profile for parallel targeting.
 6. **Stale tokens after server-side revocation** — if an admin revokes your session, the CLI will hit 401 and show a re-login hint. Run `appstrate login --profile <name>` to refresh.
 7. **`--no-org` / `--no-app` at login time** — skips pinning entirely. Every subsequent `appstrate api` call in that profile must pass the header manually: `appstrate -p dev api GET /api/agents -H 'X-Org-Id: …' -H 'X-App-Id: …'`. Usually only useful for multi-tenant admin tooling that switches context per-call.

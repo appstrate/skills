@@ -64,7 +64,7 @@ For multi-instance setups (prod + staging + dev): use named profiles via `--prof
 
 ```bash
 appstrate api GET /api/agents
-appstrate api POST /api/agents/@tractr/my-agent/run -d '{"input":{"query":"weekly"}}'
+appstrate api POST /api/agents/@your-org/my-agent/run -d '{"input":{"query":"weekly"}}'
 appstrate api /api/agents                    # method inferred
 ```
 
@@ -103,7 +103,7 @@ X-Org-Id: <org-id>
 X-App-Id: <application-id>           # NEW: required for app-scoped routes (most resource routes)
 ```
 
-**Scoped routes** — scope MUST include the `@` prefix: `@tractr/my-agent`, NOT `tractr/my-agent`. Without `@`, the catch-all SPA middleware swallows the request and returns HTML. **The `@` must be literal, not URL-encoded.** `encodeURIComponent("@scope")` produces `%40scope` — the SPA middleware matches `@` literally, NOT `%40`, and the request returns `404 "API endpoint not found"` (misleading because the agent exists). When building URLs in TypeScript, interpolate `${scope}` directly — the scope is `[a-zA-Z0-9_-]+` after `@`, safe as a path segment without encoding.
+**Scoped routes** — scope MUST include the `@` prefix: `@your-org/my-agent`, NOT `your-org/my-agent`. Without `@`, the catch-all SPA middleware swallows the request and returns HTML. **The `@` must be literal, not URL-encoded.** `encodeURIComponent("@scope")` produces `%40scope` — the SPA middleware matches `@` literally, NOT `%40`, and the request returns `404 "API endpoint not found"` (misleading because the agent exists). When building URLs in TypeScript, interpolate `${scope}` directly — the scope is `[a-zA-Z0-9_-]+` after `@`, safe as a path segment without encoding.
 
 **SSE realtime** — SSE endpoints accept the API key via query param: `?token=ask_…`. For `appstrate api`, pass `-H 'Accept: text/event-stream'` and the CLI handles the bearer.
 
@@ -298,7 +298,11 @@ appstrate api POST '/api/connections/connect/@scope/name/api-key' \
 
 Manifest fields, `PROVIDER.md` template guidance, the camelCase `apiKey` body, and the warning against `POST /api/providers` flat creation: `references/manifest-schema.md` > "Provider Fields".
 
-**Choosing the right `authMode` + bootstrap pattern for a new SaaS** — decision table (probe symptoms → pattern), pattern recipes (single-POST, ROPC, multi-step CAS, magic-link, static cookies), and anti-bot escalation ladder: `references/auth-decision-tree.md`. Read this BEFORE writing the manifest for a custom provider.
+**End-to-end workflow for a new connector** (probe → manifest → bootstrap → import/connect → optional usage tool → orchestrator agent → E2E → publish): `references/create-connector.md`. Read this first whenever you're integrating a SaaS not in the `@appstrate/*` catalog (check via `GET /api/packages/providers`). It sequences the choices and links into the other references at the right moment.
+
+**Choosing the right `authMode` + bootstrap pattern for a new SaaS** — decision table (probe symptoms → pattern), pattern recipes (single-POST, ROPC, multi-step CAS, magic-link, static cookies), and anti-bot escalation ladder: `references/auth-decision-tree.md`. The connector workflow above hands off to this file at the auth-pattern step.
+
+**When even the ladder isn't enough** — for SaaS that gate auth behind SameSite-strict OIDC callbacks, JS-computed PoW/fingerprint, or in-page-fetch-only JSON endpoints, the escape hatch is a Chromium-backed proxy (FlareSolverr) with two reusable patterns (`credentials-substitution-cross-target` + `login → sessionId → fetch`) and 3 local FS patches. Setup, architecture, caveats (non-upstream, infra cost, Cloud-incompatible): `references/flaresolverr-pattern.md`. Only reach for this after ruling out simpler patterns in `auth-decision-tree.md`.
 
 ## Data Model: input vs config vs state vs memory vs output
 
@@ -321,7 +325,7 @@ Five distinct mechanisms, different persistence semantics. Full conceptual break
 | Run via `appstrate run` returns `Tool output not found`, or `DELETE /api/packages/agents/...` returns 500, or upload PUT returns `Could not resolve host: minio` | Conjunctural platform/CLI bugs | See `references/known-issues.md` for the full list and per-bug workaround |
 | Tool TS receives empty body / `result.content[0].text === ""` from `ctx.providerCall` but it doesn't throw | Upstream response ≥ 32 KB → spilled as `resource_link` (`appstrate://provider-response/...`). Tool ignores the URI branch. | Resolve via `await ctx.readResource(block.uri)` (runtime-pi >= 1.0.0-beta.7). See `references/large-responses.md` |
 | Writer tool (push GitHub, upsert Notion, …) doing a GET pre-check loops on 422/409 even though the resource exists | Pre-check GET spills as `resource_link` when existing resource > 32 KB → `sha`/etag never extracted | Same: apply `ctx.readResource` on the pre-check GET. See `references/large-responses.md` |
-| Agent re-processes the same data on every run even though `pin(key=...)` was called and persisted | Without platform patch `ebaa95c7`, only `key="checkpoint"` is rendered in the prompt; any other key is stored but never read back | With patch: any key renders in `## Pinned Slots > <key>`. Without patch: rename to `key="checkpoint"` and bundle multiple slots into one JSON. See `references/state-and-checkpoint.md` |
+| Agent re-processes the same data on every run even though `pin(key=...)` was called and persisted | Pre-2026-05-08 install: only `key="checkpoint"` is rendered in the prompt; any other key is stored but never read back ([PR #362](https://github.com/appstrate/appstrate/pull/362) merged) | Update the install, or rename to `key="checkpoint"` and bundle multiple slots into one JSON. See `references/state-and-checkpoint.md` |
 | Agent calls `recall_memory` (or `run_history`) to read a pin and gets `[]` | `recall_memory` searches the archive (notes), not pinned slots. No native MCP tool reads pins. | Pins auto-inject into `## Checkpoint` (key="checkpoint") or `## Pinned Slots > <key>`. Update prompt: "read from the section, not via tool call" |
 | `authMode: "custom"` call returns `502 invalid_grant` / `401 INVALID_CREDENTIALS` while curl direct works | LLM self-substituted `{{email}}`/`{{password}}` with masks like `<USERNAME>` instead of leaving them literal for `substituteBody: true` | Add a verbatim block clarifying `{{var}}` (server-side, literal) vs `<MARKER>` (agent-computed). Best home: provider's `PROVIDER.md` (auto-injected into every consuming agent). See `references/prompt-writing.md` §"Placeholder Semantics" |
 | CLI rejects a flag this skill documents (e.g. `unknown option '--foo'`) | Skill is older than the installed CLI version | Suggest the user updates this skill: `curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh \| bash -s appstrate --update` |
@@ -345,6 +349,7 @@ Five distinct mechanisms, different persistence semantics. Full conceptual break
 | Need | File |
 |------|------|
 | Full 5-step Create an Agent workflow (code, rules, post-import) | `references/create-agent.md` |
+| End-to-end custom connector workflow (only when no `@appstrate/*` provider exists) | `references/create-connector.md` |
 | Platform concepts quick-ref (+ pointers to all features pages) | `references/concepts.md` |
 | Manifest schema quick-ref (+ pointer to AFPS spec) | `references/manifest-schema.md` |
 | Writing effective prompts | `references/prompt-writing.md` |

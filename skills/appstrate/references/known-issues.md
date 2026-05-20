@@ -1,16 +1,8 @@
 # Known issues — Appstrate platform & CLI
 
-Conjunctural bugs and limitations observed on **`appstrate-version: 2026-03-21`** with CLI **`appstrate@1.0.0-beta.6`**. If your instance reports a newer version, verify each entry before relying on the workaround — they may have been fixed. Each entry below ends with an **Upstream** line: open PR + branch when a fix is in flight, or an explicit "no PR planned" note when the workaround is the canonical answer.
+Conjunctural bugs and limitations observed on Appstrate self-hosted installs running upstream `main`. Each entry below ends with an **Upstream** line: when a fix is merged, the entry is kept as historical context (in case you're running an older snapshot) but tagged `RESOLVED`. When a workaround is the canonical answer, the entry says `no PR planned`.
 
-> **Upstream patches in flight** — fixes for several issues below are open as PRs against `appstrate/appstrate`:
-> [#360](https://github.com/appstrate/appstrate/pull/360) (DELETE 500 cascade) ·
-> [#361](https://github.com/appstrate/appstrate/pull/361) (UI accept `*/*`, PEP 370, healthcheck IPv4) ·
-> [#362](https://github.com/appstrate/appstrate/pull/362) (prompt rendering: `./documents/`, pinned slots) ·
-> [#363](https://github.com/appstrate/appstrate/pull/363) (`substituteBody` propagation) ·
-> [#364](https://github.com/appstrate/appstrate/pull/364) (`ctx.providerCall` + `ctx.readResource`) ·
-> [#365](https://github.com/appstrate/appstrate/pull/365) (sidecar 256 KB payload caps) ·
-> [#366](https://github.com/appstrate/appstrate/pull/366) (5-min wall on long agent runs).
-> Once merged + released, the corresponding entry below becomes obsolete — check the PR status before assuming a bug applies to a recently updated install.
+> **Recently resolved**: PRs [#360](https://github.com/appstrate/appstrate/pull/360) (DELETE 500 cascade), [#361](https://github.com/appstrate/appstrate/pull/361) (UI accept `*/*`, PEP 370, healthcheck IPv4), [#362](https://github.com/appstrate/appstrate/pull/362) (prompt rendering: `./documents/`, pinned slots), [#363](https://github.com/appstrate/appstrate/pull/363) (`substituteBody` propagation), [#364](https://github.com/appstrate/appstrate/pull/364) (`ctx.providerCall` + `ctx.readResource`), [#365](https://github.com/appstrate/appstrate/pull/365) (sidecar 256 KB payload caps), [#366](https://github.com/appstrate/appstrate/pull/366) (5-min wall on long agent runs) — all merged into upstream `main` (commit `d27e9931` or later). If your install is from before 2026-05-08, the entries below tagged `RESOLVED` apply; otherwise they don't.
 
 ## Table of Contents
 
@@ -22,18 +14,18 @@ Conjunctural bugs and limitations observed on **`appstrate-version: 2026-03-21`*
 - [Custom provider runs fail with `DraftPackageCatalog: ... has no files in storage`](#custom-provider-runs-fail-with-draftpackagecatalog--has-no-files-in-storage)
 - [`POST /api/models` rejects optional `cost.cacheRead`/`cacheWrite` as required](#post-apimodels-rejects-optional-costcacheread--cachewrite-as-required)
 - [`provider_call({ substituteBody: true })` silently dropped — placeholders forwarded literally](#provider_call-substitutebody-true-silently-dropped--placeholders-forwarded-literally)
+- [Sidecar Bun fetch: SameSite=Lax cookies dropped on cross-host redirects](#sidecar-bun-fetch-samesitelax-cookies-dropped-on-cross-host-redirects)
+- [Sidecar Bun fetch: AWS ALB stickiness lost between separate `provider_call`s](#sidecar-bun-fetch-aws-alb-stickiness-lost-between-separate-provider_calls)
 
 ---
 
-## DELETE agent returns 500 once a run exists
+## DELETE agent returns 500 once a run exists — `RESOLVED`
 
-**Symptom**: `DELETE /api/packages/agents/{scope}/{name}` returns `500 internal_error` (RFC 9457, no `detail`). Triggered as soon as any run has terminated on the agent (success/failed/cancelled). Fresh agents that never ran return 204 normally.
+**Symptom (historical)**: `DELETE /api/packages/agents/{scope}/{name}` returned `500 internal_error` (RFC 9457, no `detail`) as soon as any run had terminated on the agent. The fix is a schema migration that sets `llm_usage.run_id` FK to `ON DELETE CASCADE`.
 
-**Tried and not working** — bulk-delete runs (`DELETE /api/agents/{scope}/{name}/runs`) returns 500 too. Version-by-version deletion succeeds (204) but leaves the shell stuck (`hasUnarchivedChanges: true`).
+**If you hit it on a pre-2026-05-08 install**, the workaround is to delete via the **webapp UI** — that code path handles the run-cascade independently and was never broken.
 
-**Workaround**: delete via the **webapp UI** — the UI uses a different code path that handles the run-cascade correctly. Don't waste cycles on API workarounds.
-
-**Upstream**: [PR #360](https://github.com/appstrate/appstrate/pull/360) (open) — schema migration that changes the `llm_usage.run_id` FK to `ON DELETE CASCADE`.
+**Upstream**: [PR #360](https://github.com/appstrate/appstrate/pull/360) **merged** into `main` (~2026-05-08).
 
 ---
 
@@ -124,25 +116,17 @@ Find the project id with `docker compose ls` (or the install's stdout — it pri
 
 ---
 
-## Webapp file picker rejects `accept: "*/*"` literally
+## Webapp file picker rejects `accept: "*/*"` literally — `RESOLVED`
 
-**Symptom**: a file field with `fileConstraints.<field>.accept = "*/*"` rejects every uploaded file in the webapp with:
+**Symptom (historical)**: a file field with `fileConstraints.<field>.accept = "*/*"` rejected every uploaded file in the webapp with `Extension non autorisée …`. The validator compared `*/*` literally instead of treating it as the HTML wildcard. Same logic for `image/*` and other family wildcards.
 
-```
-Extension non autorisée pour "xxx.pdf" (accepté: */*)
-```
-
-The validator compares `*/*` literally instead of treating it as the standard HTML wildcard.
-
-**Workaround**: enumerate MIMEs **and** extensions explicitly:
+**If you hit it on a pre-2026-05-08 install**, enumerate MIMEs AND extensions explicitly:
 
 ```json
 "accept": "application/pdf,image/jpeg,image/png,.pdf,.jpg,.png"
 ```
 
-Same logic for family wildcards — `image/*` is also rejected literally; expand it.
-
-**Upstream**: [PR #361](https://github.com/appstrate/appstrate/pull/361) (open) — bundle includes the 1-line fix in `file-widget.tsx` plus two unrelated self-hosting fixes.
+**Upstream**: [PR #361](https://github.com/appstrate/appstrate/pull/361) **merged** into `main` (~2026-05-08) — 1-line fix in `file-widget.tsx`.
 
 ---
 
@@ -216,29 +200,52 @@ If you need cost tracking, provide all four sub-fields (use `0` as a placeholder
 
 ---
 
-## `provider_call({ substituteBody: true })` silently dropped — placeholders forwarded literally
+## `provider_call({ substituteBody: true })` silently dropped — `RESOLVED`
 
-**Symptom**: a custom-auth provider with `{ email, password }` credentials, an agent calling `provider_call({ providerId, method:"POST", target:"...", body:'{"login":"{{email}}","password":"{{password}}"}', substituteBody: true })`. The body lands upstream with placeholders **untouched**:
+**Symptom (historical)**: a custom-auth provider with `{ email, password }` credentials, an agent calling `provider_call({ method:"POST", body:'{"login":"{{email}}","password":"{{password}}"}', substituteBody: true })`. The body landed upstream with placeholders **untouched** (literal `{{email}}` / `{{password}}` strings).
 
-```json
-{ "json": { "login": "{{email}}", "password": "{{password}}" } }
-```
+**Root cause** — schema inconsistency across 3 layers: the sidecar parsed `substituteBody`, but the runtime-pi resolver didn't propagate it, AND the AFPS Zod schema didn't declare it (so safeParse stripped it). Headers/URL substitution worked because automatic.
 
-instead of `{"login":"alice@example.com","password":"PWD-12345"}`. Reproducible on **both** local self-hosted and cloud (`https://app.appstrate.com`).
+**Implication of the bug**: before this fix, no Appstrate agent could do a programmatic `username/password` login via `substituteBody`. ADR-003-respecting alternatives (`custom` + tool TS using `substituteBody` to send creds to a login endpoint) were impossible.
 
-**Discriminating test**: the same request with a placeholder in a **header** (`X-Email: {{email}}`) substitutes correctly. So `fetchCredentials` works, `substituteVars` works — only the body path is broken.
+**If you hit it on a pre-2026-05-08 install**: there's no agent-side workaround. Putting creds in agent config defeats ADR-003 (LLM sees them); pre-substituting client-side requires reading the credential from env which providers don't expose. Update to a post-PR #363 install.
 
-**Root cause** — schema inconsistency across 3 layers:
-1. Sidecar declares `substituteBody?: boolean`, parses it, performs conditional substitution. ✓
-2. Resolver agent-side (`runtime-pi/mcp/provider-resolver.ts`) does NOT propagate `req.substituteBody` to the MCP args. ✗
-3. AFPS runtime schema (`packages/afps-runtime/.../provider-tool.ts`) does NOT declare `substituteBody`. Zod safeParse strips it before it reaches the resolver. ✗
+**For tools that wrap providers depending on this fix**: defensively check upstream responses for a placeholder echo (`{{email}}` literal in auth-failure response bodies) and fail loud — surfaces install-version skew quickly.
 
-So the sidecar never sees the flag, falls into the buffered body branch without substitution, forwards literal placeholders. Headers and URL substitution still work because they're automatic in the sidecar (not opt-in).
+**Upstream**: [PR #363](https://github.com/appstrate/appstrate/pull/363) **merged** into `main` (~2026-05-08) — 2 lines across 2 files. Tracked as `BUGS-EVO §2.6` upstream historically.
 
-**Implication**: **no OSS Appstrate agent can do a programmatic `username/password` login via `substituteBody` today without the platform patch.** PR #363 ([appstrate/appstrate#363](https://github.com/appstrate/appstrate/pull/363)) — 2 lines across 2 files — fixes this. Tracks as `BUGS-EVO §2.6` upstream.
+---
 
-**Workaround until merged** — for usages where this flag is required (ClassDojo, Amisgest, OrgaBusiness, any SaaS demanding a JSON `{email, password}` login instead of a Bearer header), **the platform patch is mandatory**. No agent-side workaround is viable: putting credentials in plain text in agent config defeats the security model (the LLM sees the secret), and pre-substituting client-side requires reading the credential from the runner's env which providers do not expose.
+## Sidecar Bun fetch: SameSite=Lax cookies dropped on cross-host redirects
 
-**For tools that wrap such providers**, defensively check the response for a placeholder echo (`{{email}}` literal in upstream error logs or auth-failure responses) and fail loud with a typed error pointing to this issue, rather than retrying or silently corrupting downstream state.
+**Symptom**: a multi-step OIDC / OAuth login appears to succeed (POST CAS form returns 200, redirect chain follows) but ends on `?error=Callback` (next-auth) or equivalent vendor error. The session is rejected even though the credentials are valid.
 
-**Upstream**: [PR #363](https://github.com/appstrate/appstrate/pull/363) (open) — 2 lines across 2 files: declare `substituteBody` in the AFPS Zod schema, propagate it in the resolver's `buildMcpArgs`.
+The smoking gun is `"error":"Callback"` in the `__NEXT_DATA__` JSON of the final HTML page. next-auth couldn't verify the OAuth `state` because the `__Secure-next-auth.state` cookie (set during the initial `signin/<provider>` POST) wasn't sent on the final `/api/auth/callback/<provider>?code=...&state=...` hop.
+
+**Cause**: Bun's `fetch` implementation in the sidecar doesn't carry `SameSite=Lax` HTTP-only cookies across cross-host redirects. When the redirect chain crosses domains (e.g., `id.example.com/oauth → www.example.com/api/auth/callback`), the cookie is stripped — even though a real browser would forward it because it's a top-level GET redirect (allowed by SameSite=Lax). HttpOnly cookies are also affected: the tool can't even read them via `document.cookie` and inject them manually.
+
+**Tried and not working**:
+- Setting `headers: { Cookie: "..." }` explicitly — the sidecar uses its own cookie jar; manual `Cookie` headers may be ignored or merged unpredictably.
+- Following the redirect manually (`redirect: "manual"`) and re-issuing the GET — `provider_call` doesn't expose `redirect: "manual"`.
+
+**Workaround**: route the entire login flow through **FlareSolverr** (Chromium-backed proxy). Chromium handles SameSite semantics correctly. See `references/flaresolverr-pattern.md` for the architecture, the `credentials-substitution-cross-target` pattern (preserves ADR-003), and the `login → sessionId → fetch` pattern.
+
+When this fix is impractical (no Docker, multi-tenant cloud), the only alternative is to switch to a SaaS that doesn't require this style of flow, or to capture cookies manually from a browser session and use the `static cookies` pattern in `auth-decision-tree.md` §3-E.
+
+**Upstream**: no PR planned at the platform layer. The fix lives in Bun itself (cookie jar SameSite semantics) and is out of scope for Appstrate. Pierre's stance ([issue #458](https://github.com/appstrate/appstrate/issues/458)) is that real-browser bypass should be tenant-side infrastructure (proxy + headless), not embedded in the sidecar.
+
+---
+
+## Sidecar Bun fetch: AWS ALB stickiness lost between separate `provider_call`s
+
+**Symptom**: a Spring Security `j_username`/`j_password` form login that works in `curl --cookie-jar` from your laptop fails when executed via two separate `provider_call`s in a tool TS (`GET /login` then `POST /login`). Specifically, the POST lands on a different AWS Application Load Balancer instance than the GET, doesn't have a Spring `JSESSIONID` associated, and silently rejects the login (302 back to `/login` with no error message).
+
+**Cause**: AWS ALB uses two cookies for stickiness — `AWSALB` (cookie-based) + `AWSALBCORS` (CORS variant). Both must be set on the GET and replayed on the POST. The sidecar's redirect-cookie-capture handles cookies set inside a **single** `provider_call` (across its redirect hops), but doesn't aggressively merge `Set-Cookie` headers across **separate** `provider_call`s when the second call lands before the first response's `Set-Cookie` has propagated to the jar.
+
+This is timing-sensitive: it works on some networks (jar updates faster than the next call's TLS handshake) and fails on others.
+
+**Workaround A — keep the bootstrap inside one tool call**: structure your login tool as a single `provider_call` that does the form POST with `j_username={{email}}&j_password={{password}}` directly. The sidecar's redirect-capture handles the GET-then-POST inside that single navigation. The decision-table entry "Pattern B (single-POST)" in `auth-decision-tree.md` already prescribes this — applies here.
+
+**Workaround B — route via FlareSolverr**: for Spring Security flows that genuinely need a pre-flight GET (e.g., the login page produces a server-side token that the POST must echo), use FS sessions. Chromium handles ALB stickiness correctly because it batches cookie reads/writes inside one process. See `references/flaresolverr-pattern.md`.
+
+**Upstream**: no PR planned. Workaround A handles the common case; workaround B handles the rest.

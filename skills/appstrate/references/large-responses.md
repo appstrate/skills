@@ -174,13 +174,13 @@ The 32 KB threshold is a server-side constant. `ctx.providerCall` ignores any cu
 
 Any tool that consumes an upstream response is affected — including writer tools that do a GET for pre-validation before a PUT/POST. Concrete example: a `github-contents-create` tool that fetches the existing file's `sha` before doing a PUT update. If the existing file is > 32 KB, the GET spills as `resource_link` → `sha` is never extracted → PUT loops on `422 sha is required` indefinitely. Easy to misdiagnose as a GitHub auth or API shape problem.
 
-### 5. Related downstream bug — sidecar truncation at 256 KB before spillover
+### 5. Related downstream bug — sidecar truncation at 256 KB before spillover (RESOLVED)
 
-In `runtime-pi/sidecar/mcp.ts` (~line 712), the text path reads the upstream body via `readBodyBounded(res, MAX_RESPONSE_SIZE)` (256 KB cap, appends a `[truncated...]` marker) **before** deciding to spill into the BlobStore. So any text body between 256 KB and 1 MB arrives at the tool as a 256 KB chunk + the marker polluting the JSON, not the full body.
+In older sidecar builds (`runtime-pi/sidecar/mcp.ts` before [PR #365](https://github.com/appstrate/appstrate/pull/365)), the text path read the upstream body via `readBodyBounded(res, MAX_RESPONSE_SIZE)` (256 KB cap, appends a `[truncated...]` marker) **before** deciding to spill into the BlobStore. So any text body between 256 KB and 1 MB arrived at the tool as a 256 KB chunk + the marker polluting the JSON, not the full body.
 
-The patch (`bugs-evos-oli` commit `dea49d06`) raises the read cap to `ABSOLUTE_MAX_RESPONSE_SIZE` (1 MB) when a blob store is available — bodies up to 1 MB then pass through intact.
+[PR #365](https://github.com/appstrate/appstrate/pull/365) merged into upstream `main` (~2026-05-08) raises the read cap to `ABSOLUTE_MAX_RESPONSE_SIZE` (1 MB) when a blob store is available — bodies up to 1 MB now pass through intact.
 
-If your runtime doesn't have this patch, **any text response > 256 KB will be silently corrupted** at the tool boundary, regardless of `ctx.readResource`. There is no tool-side workaround — the data is already truncated by the time you receive the URI.
+If you're on a pre-2026-05-08 install, **any text response > 256 KB will still be silently corrupted** at the tool boundary, regardless of `ctx.readResource`. There is no tool-side workaround — the data is already truncated by the time you receive the URI. Update the install to pick up the fix.
 
 ---
 
@@ -190,5 +190,5 @@ If your runtime doesn't have this patch, **any text response > 256 KB will be si
 |-------|-------|-----|
 | Tool TS receives empty body / `result.content[0].text === ""` but `ctx.providerCall` does not throw | Upstream response ≥ 32 KB → spilled as `resource_link` (`appstrate://provider-response/...`). Tool ignores the URI branch. | Resolve via `ctx.readResource(block.uri)` (runtime-pi >= 1.0.0-beta.7). See snippet above. |
 | Writer tool (push GitHub, upsert Notion, etc.) doing a GET pre-check loops on 422/409 even though the resource exists | The pre-check GET spills as `resource_link` when the existing resource > 32 KB → `sha` / etag never extracted → retry without the right header → 422 | Same fix: apply `ctx.readResource` on the pre-check GET. |
-| Body returned by `ctx.readResource` mysteriously truncated to ~259 KB with `[truncated: response exceeded 262144 bytes]` at the end | Sidecar amont bug: truncates at 256 KB BEFORE BlobStore spillover (`runtime-pi/sidecar/mcp.ts`) | Platform patch (`bugs-evos-oli` commit `dea49d06`) raises cap to 1 MB. Without the patch: no tool-side workaround. |
+| Body returned by `ctx.readResource` mysteriously truncated to ~259 KB with `[truncated: response exceeded 262144 bytes]` at the end | Sidecar bug in pre-2026-05-08 builds: truncates at 256 KB BEFORE BlobStore spillover (`runtime-pi/sidecar/mcp.ts`) | RESOLVED by [PR #365](https://github.com/appstrate/appstrate/pull/365). Update the install — no tool-side workaround on older builds. |
 | `result.content[0].text === ""` or empty body from `ctx.providerCall` on a binary download > 500 KB | Binary content exceeds the inline cap and the base64 envelope path saturates / the tool fails to decode `c.blob` past a few MB | Use `responseMode: { toFile: "<path>" }`. Sidecar streams directly to disk; read the file with `fs.stat` / `fs.readFile` afterwards. |

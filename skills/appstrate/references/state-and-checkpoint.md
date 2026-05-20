@@ -1,21 +1,17 @@
 # State and pinned slots — `pin(key)` rendering in the system prompt
 
-Cross-run state for an agent is stored via the `pin({ key, content, scope? })` system tool. The persisted entries live in the `package_persistence` table, but **how the agent reads them back at the next run depends on the platform version**. This document covers the runtime behavior, the recommended prompt pattern, and three anti-patterns that cost ~30 min of debug each if missed.
+Cross-run state for an agent is stored via the `pin({ key, content, scope? })` system tool. The persisted entries live in the `package_persistence` table and are surfaced to the next run as **sections in the system prompt** — no tool call needed to read them back. This document covers the rendering rules, the recommended prompt pattern, and a handful of gotchas that each cost ~30 min of debug if missed.
 
 ---
 
 ## Storage vs prompt rendering
 
-`pin(key, content)` accepts any key matching `^[a-z0-9_]+$` (max 64 chars) and stores the entry verbatim. The platform always writes successfully — the question is how it surfaces back at the next run.
+`pin(key, content)` accepts any key matching `^[a-z0-9_]+$` (max 64 chars) and stores the entry verbatim. The platform always writes successfully — and on current upstream `main` (since [PR #362](https://github.com/appstrate/appstrate/pull/362), merged ~2026-05-08), the rendering rules are:
 
-**Without the `## Pinned Slots` patch** (`apps/api` < commit `ebaa95c7` on `bugs-evos-oli`) — original behaviour:
-- Only `key="checkpoint"` is rendered, in section `## Checkpoint` of the system prompt.
-- Any other key is **stored but never rendered** in the prompt — the slot is reachable only via `GET /api/agents/.../persistence` (admin/debug), never by the agent at the next run.
-- Consequence: an agent that writes `pin(key="sync_state", ...)` cannot read it back next run → silently re-processes everything (the bug pattern that triggered the patch).
+- `key="checkpoint"` renders in section `## Checkpoint` of the system prompt (dedicated, single slot).
+- Any other key renders in `## Pinned Slots`, with each slot as a `### <key>` subheading. Plain string contents render as-is; structured contents are wrapped in a fenced JSON block. Keys are sorted alphabetically for deterministic output.
 
-**With the `## Pinned Slots` patch** (commit `ebaa95c7`) — behaviour aligned with the docstring:
-- `key="checkpoint"` still renders in `## Checkpoint` (unchanged).
-- Any other key renders in a new `## Pinned Slots` section, with each slot as a `### <key>` subheading. Plain string contents render as-is; structured contents are wrapped in a fenced JSON block. Keys are sorted alphabetically for deterministic output.
+> **Pre-2026-05-08 installs**: only `key="checkpoint"` was rendered. Any other key was stored but never surfaced — the slot was reachable only via `GET /api/agents/.../persistence` (admin/debug). Agents that wrote `pin(key="sync_state", ...)` couldn't read it back next run, silently re-processing everything. Fix: update the install, or fall back to a single `key="checkpoint"` slot bundling all your state as a JSON object.
 
 ---
 
@@ -31,7 +27,7 @@ In `prompt.md`:
 State is stored via `pin(key="<your-key>", ...)`. At run start, the value
 is **automatically injected** into your system prompt:
 - `key="checkpoint"` → section `## Checkpoint`
-- `key="<custom>"` (with platform patch ebaa95c7) → section `## Pinned Slots > <custom>`
+- `key="<custom>"` → section `## Pinned Slots > <custom>`
 
 **DO NOT call any tool to read it** — not `recall_memory`, not `note`, not
 `run_history`. The content is already in your context. If the section is
@@ -41,10 +37,10 @@ absent: this is the first run → start with the default value.
 **Writing**: at the end of the run.
 
 ```ts
-// Single carry-over slot (always works, all platform versions)
+// Single carry-over slot
 await pin({ key: "checkpoint", content: { processed_ids: [...], last_sync: "..." }, scope: "shared" });
 
-// Multiple named slots (requires platform patch ebaa95c7)
+// Multiple named slots
 await pin({ key: "persona", content: "You are a friendly assistant.", scope: "shared" });
 await pin({ key: "goals", content: ["maximize accuracy", "respect user time"], scope: "shared" });
 await pin({ key: "last_processed_id", content: 142828058, scope: "shared" });
@@ -82,7 +78,7 @@ The admin endpoint returns `{ pinned: [{id, key, content, runId, ...}], memories
 
 ### 5. The reserved key `"checkpoint"`
 
-`key="checkpoint"` is special: it always renders in `## Checkpoint` (its own dedicated section), separately from `## Pinned Slots`. Use it as the **principal cross-run carry-over slot**. Any other key (`persona`, `goals`, `last_<thing>`, `sync_state`, etc.) renders in `## Pinned Slots > <key>` once the platform patch is applied.
+`key="checkpoint"` is special: it always renders in `## Checkpoint` (its own dedicated section), separately from `## Pinned Slots`. Use it as the **principal cross-run carry-over slot**. Any other key (`persona`, `goals`, `last_<thing>`, `sync_state`, etc.) renders in `## Pinned Slots > <key>`.
 
 The PINNED_KEY_PATTERN is `^[a-z0-9_]+$` (max 64 chars) — kebab-case (`sync-state`) is rejected, use snake_case (`sync_state`).
 
@@ -92,17 +88,6 @@ The PINNED_KEY_PATTERN is `^[a-z0-9_]+$` (max 64 chars) — kebab-case (`sync-st
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| Agent re-processes the same data on every run even though `pin(key=...)` was called and persisted | Without platform patch `ebaa95c7`, only `key="checkpoint"` is rendered in the prompt. Any other key is stored but never read. | With patch: any key is rendered in `## Pinned Slots`. Without patch: rename to `key="checkpoint"` and bundle multiple slots into one JSON object under that key. |
-| Agent calls `recall_memory` or `run_history` to read a `pin` and gets `[]` | `recall_memory` searches the archive (notes), not pinned slots. `run_history` returns past-run metadata, not the current pin state. No native tool reads pins. | The pin auto-injects into `## Checkpoint` (key="checkpoint") or `## Pinned Slots > <key>` (others, with patch). Update the prompt: "read from the section, not via a tool call". |
+| Agent re-processes the same data on every run even though `pin(key=...)` was called and persisted | Pre-2026-05-08 install: only `key="checkpoint"` rendered in the prompt. Any other key stored but never surfaced. | Update the install (PR #362 merged). Without the fix: rename to `key="checkpoint"` and bundle multiple slots into one JSON object. |
+| Agent calls `recall_memory` or `run_history` to read a `pin` and gets `[]` | `recall_memory` searches the archive (notes), not pinned slots. `run_history` returns past-run metadata, not the current pin state. No native tool reads pins. | The pin auto-injects into `## Checkpoint` (key="checkpoint") or `## Pinned Slots > <key>` (others). Update the prompt: "read from the section, not via a tool call". |
 | `Invalid pinned slot key "foo-bar"` from `pin` | Pattern `^[a-z0-9_]+$` rejects hyphens | Use snake_case: `foo_bar` |
-
----
-
-## Related platform patches
-
-This document assumes the platform patches on branch `bugs-evos-oli` of `appstrate/appstrate` (or upstream once merged):
-
-- **`ebaa95c7`** — `feat(prompt): render named pinned slots in '## Pinned Slots' section` — enables the multi-slot pattern. Without this patch, only `key="checkpoint"` is visible at the next run.
-- **`2f450027`** — `fix(prompt): only mention ./documents/ in Workspace bullet when uploads exist` — removes a related false signal in the same `## System` section (no impact on pin rendering, but in the same prompt-builder file).
-
-If you're targeting a stock Appstrate install (no patches), use `key="checkpoint"` exclusively and bundle all your state into one JSON object under that key. The "multi named slots" pattern only works with `ebaa95c7` applied.
