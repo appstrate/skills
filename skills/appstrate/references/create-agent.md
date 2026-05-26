@@ -4,6 +4,8 @@
 
 - [Step 0: Discover available resources](#step-0-discover-available-resources)
 - [Step 1: Write manifest.json](#step-1-write-manifestjson)
+  - [File / upload input fields](#file--upload-input-fields)
+  - [Critical rules](#critical-rules)
 - [Step 2: Write prompt.md](#step-2-write-promptmd)
 - [Step 3: Package as .afps](#step-3-package-as-afps)
 - [Step 4: Import](#step-4-import)
@@ -30,6 +32,8 @@ appstrate api GET /api/agents
 ```
 
 Use these results to choose the right `dependencies.tools`, `dependencies.skills`, and `dependencies.providers`. System tools decision guide: `system-tools.md`.
+
+> **Before declaring a custom tool dependency**, apply the arbitrage in `tools-vs-scripts.md`. Deterministic local transformations (parse a file, generate a CSV, rename fields) belong in a companion skill's `scripts/`, not in a separate AFPS tool package. And if the step requires LLM reasoning, the agent itself does it — no tool, no script.
 
 ## Step 1: Write manifest.json
 
@@ -61,6 +65,41 @@ Start from `assets/agent-manifest.json`. Key fields:
 }
 ```
 
+### File / upload input fields
+
+If the agent must receive a file (PDF, image, attachment) as input, declare the property like this:
+
+```json
+"input": {
+  "schema": {
+    "type": "object",
+    "properties": {
+      "document": {
+        "type": "string",
+        "format": "uri",
+        "contentMediaType": "application/pdf",
+        "title": "Document",
+        "description": "PDF to analyze"
+      }
+    },
+    "required": ["document"]
+  },
+  "fileConstraints": {
+    "document": { "accept": "application/pdf,.pdf", "maxSize": 33554432 }
+  }
+}
+```
+
+**Why all three keys are mandatory** — `input-parser.collectUploadRefs` only recognizes a property as a file field when `format === "uri" && contentMediaType` is set. Without those two keys, an `upload://upl_xxx` value is treated as a plain string, never consumed, and the sandbox starts without the file. Same detection applies to the webapp file picker — without these keys it shows a plain text input.
+
+**`fileConstraints` placement** — sibling of `schema`, NOT inside it. Keyed by property name. Avoid `accept: "*/*"` (validator compares it literally — see `known-issues.md`); always enumerate MIMEs and extensions.
+
+**Verify the wiring** — after import, open the agent in the webapp and click "Run". File picker = correctly wired. Plain text input = one of the three keys is missing.
+
+For arrays of files, multiple files, full schema details: `manifest-schema.md` §"File / upload fields".
+
+### Critical rules
+
 Critical rules (sources of most import-time failures):
 
 - `name` MUST be `@scope/name` format (lowercase, hyphens OK).
@@ -69,6 +108,7 @@ Critical rules (sources of most import-time failures):
 - `dependencies.providers` is `Record<string, semverRange>`, NOT an array.
 - `required` is a top-level array (`"required": ["field"]`), NOT `required: true` on individual properties.
 - `connectionMode`: `"user"` (each user connects their own account) or `"admin"` (shared org-level credentials).
+- **File / upload fields** — there is no `"file"` type. Declare the property as `"type": "string"` with `format: "uri"` + `contentMediaType: "<mime>"` plus a sibling `fileConstraints` block. All three keys must be present together — see `manifest-schema.md` §"File / upload fields" for the full recipe.
 
 Full manifest schema (all 4 package types, every field): `manifest-schema.md`.
 

@@ -65,6 +65,8 @@ Check `## Previous State` for `lastSyncTimestamp`.
 Call `set-state` with `{ "lastSyncTimestamp": "<now>" }` before finishing.
 ```
 
+> **Note (post-ADR-011/012/013)** — modern agents should prefer `pin({ key, content, scope })` instead of `set-state`. `pin` writes to the unified `package_persistence` store with explicit scoping (`shared` / `member` / `end_user`) and renders into the system prompt as `## Checkpoint` (for `key="checkpoint"`) or `## Pinned Slots > <key>` (for any other key, requires platform patch — see `references/state-and-checkpoint.md`). Anti-pattern reminder: do NOT call `recall_memory` to read a pin — it searches the archive (notes), not pinned slots. Read pins from the prompt sections, never via tool call.
+
 ### `@appstrate/add-memory` — Long-term learning
 
 Saves a discovery or learning as a long-term memory. Memories are injected into future runs and persist across versions.
@@ -80,6 +82,17 @@ Sends progress messages visible to the user in real time (via SSE).
 **When to use**: Long-running agents where the user benefits from seeing intermediate progress (e.g., "Processing page 3/10...").
 
 **In prompt.md**: Instruct the agent to call `log` at key milestones.
+
+## MCP-injected tools (sidecar surface)
+
+Three MCP tools are auto-injected by the sidecar into every agent run — the agent always sees them in its tool list, no manifest declaration needed:
+
+- **`provider_call({ providerId, method, target, headers?, body?, ... })`** — credentialed proxy. The sidecar resolves the provider's stored credentials and forwards the request to the upstream URL. Returns the upstream response verbatim. The credential is **never** visible to the agent. The `providerId` enum is sourced from your agent's `dependencies.providers[]`.
+  > **Responses ≥ 32 KB**: the body is spilled to a `BlobStore` and returned as an MCP `resource_link` block instead of inline `text`. To resolve from a custom tool, use `ctx.readResource(uri)` (the 4th `execute` arg, runtime-pi >= 1.0.0-beta.7) — without it `result.content[0].text` will silently come back empty for non-trivial responses. Full pattern + 5 gotchas: see `references/large-responses.md`.
+- **`run_history({ limit?, fields? })`** — recent past-run metadata (status, duration, optional `checkpoint` and `result`). Useful for trend analysis, auditing, or recovering from a failed run.
+- **`recall_memory({ q?, limit? })`** — search the agent's archive (rows written via the `note(content)` system tool). **Does NOT search pinned slots written by `pin(key, content)`** — those are auto-injected into the prompt, not retrievable via tool call. See `references/state-and-checkpoint.md`.
+
+These tools are documented to the LLM at runtime via the prompt builder; no skill-side action needed beyond declaring `dependencies.providers[]` for `provider_call`.
 
 ## Decision Guide
 

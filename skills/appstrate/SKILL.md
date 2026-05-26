@@ -1,11 +1,15 @@
 ---
 name: appstrate
-description: Build, deploy, run, and iterate on AI agents on self-hosted Appstrate instances via the `appstrate` CLI and REST API. Use for writing or editing an agent (manifest.json + prompt.md), packaging as `.afps`, importing, running (persisted or inline/ephemeral), validating a manifest dry-run, monitoring runs, scheduling, managing skills/tools/providers, connecting OAuth or API-key services, switching between prod/staging/dev profiles, or calling `appstrate api` / exploring the OpenAPI schema. **Assumes `appstrate whoami` already succeeds** — the skill does NOT run `appstrate install` (install is a human decision, routed to manual terminal steps). Triggers on mentions of AFPS, sidecar proxy, scoped packages (`@scope/name`), inline runs (`/api/runs/inline`), `INLINE_RUN_LIMITS`, `APPSTRATE_PROFILE`, "on prod / local / dev", self-hosted Appstrate, or any `appstrate <command>` invocation.
+description: Build, deploy, run, and iterate on AI agents on self-hosted Appstrate instances via the `appstrate` CLI and REST API. Covers writing an agent (manifest.json + prompt.md), packaging as `.afps`, importing, running (persisted or inline via `/api/runs/inline`), validating a manifest dry-run, monitoring, scheduling, managing skills/tools/providers, connecting OAuth or API-key services, and switching between prod/staging/dev profiles (`APPSTRATE_PROFILE`, "on prod / local / dev"). Triggers on AFPS, sidecar proxy, scoped packages (`@scope/name`), `INLINE_RUN_LIMITS`, self-hosted Appstrate, or any `appstrate` CLI invocation. **Assumes `appstrate whoami` already succeeds** — does NOT run `appstrate install` (install is a human decision, routed to manual terminal steps).
 ---
 
 # Appstrate
 
 Manage AI agents on self-hosted Appstrate instances via the `appstrate` CLI or the REST API. Everything is a **package** with a scoped name (`@scope/name`). Four types: `agent`, `skill`, `tool`, `provider`.
+
+## Sections
+
+[Setup](#setup) · [Profile management](#profile-management) · [API Conventions](#api-conventions) · [Quick Reference](#quick-reference) · [Create an Agent](#create-an-agent) · [Run an Agent](#run-an-agent) · [Run Inline](#run-inline-no-package-import) · [Update an Agent](#update-an-agent-iterate) · [Schedule an Agent](#schedule-an-agent) · [Create a Skill](#create-a-skill) · [Create a Tool](#create-a-tool) · [Create a Provider](#create-a-provider) · [Data Model](#data-model-input-vs-config-vs-state-vs-memory-vs-output) · [Common Errors](#common-errors) · [References](#references)
 
 - **API docs**: `$APPSTRATE_URL/api/docs` on your instance (or `appstrate openapi list` for the active profile)
 - **OpenAPI JSON**: `GET /api/openapi.json` (or `appstrate openapi export`)
@@ -46,7 +50,9 @@ Re-run `appstrate whoami` from your Bash tool to confirm. When it returns the us
 
 > **Minisign prerequisite** for the `curl | bash` path: `brew install minisign` (macOS), `sudo apt install minisign` (Debian/Ubuntu), `apk add minisign` (Alpine). The `bunx` path skips this entirely.
 
-> **If the user has no LLM key connected**, agent runs will fail at dispatch. Tell them to open the webapp at `http://localhost:3000` → Settings → Models → Add a model. The skill cannot add API keys for them (no public endpoint for it).
+> **If the user has no LLM key connected**, agent runs will fail at dispatch. Two paths to add one:
+> 1. **UI** (simplest): webapp at `http://localhost:3000` → Settings → Models → Add a model.
+> 2. **API** (scriptable): `POST /api/provider-keys` to register the key, then `POST /api/models` referencing the returned `providerKeyId`. Validator gotcha around the `cost` object: see `references/known-issues.md`.
 
 For edge cases the skill does NOT cover by default (headless CI, agent-delegated install, tier upgrades, non-interactive flags, API-key fallback for environments without the CLI): `references/setup.md`.
 
@@ -58,7 +64,7 @@ For multi-instance setups (prod + staging + dev): use named profiles via `--prof
 
 ```bash
 appstrate api GET /api/agents
-appstrate api POST /api/agents/@tractr/my-agent/run -d '{"input":{"query":"weekly"}}'
+appstrate api POST /api/agents/@your-org/my-agent/run -d '{"input":{"query":"weekly"}}'
 appstrate api /api/agents                    # method inferred
 ```
 
@@ -97,7 +103,7 @@ X-Org-Id: <org-id>
 X-App-Id: <application-id>           # NEW: required for app-scoped routes (most resource routes)
 ```
 
-**Scoped routes** — scope MUST include the `@` prefix: `@tractr/my-agent`, NOT `tractr/my-agent`. Without `@`, the catch-all SPA middleware swallows the request and returns HTML.
+**Scoped routes** — scope MUST include the `@` prefix: `@your-org/my-agent`, NOT `your-org/my-agent`. Without `@`, the catch-all SPA middleware swallows the request and returns HTML. **The `@` must be literal, not URL-encoded.** `encodeURIComponent("@scope")` produces `%40scope` — the SPA middleware matches `@` literally, NOT `%40`, and the request returns `404 "API endpoint not found"` (misleading because the agent exists). When building URLs in TypeScript, interpolate `${scope}` directly — the scope is `[a-zA-Z0-9_-]+` after `@`, safe as a path segment without encoding.
 
 **SSE realtime** — SSE endpoints accept the API key via query param: `?token=ask_…`. For `appstrate api`, pass `-H 'Accept: text/event-stream'` and the CLI handles the bearer.
 
@@ -128,7 +134,7 @@ All curl examples below use `appstrate api` by default. If you need the raw-curl
 | List everything | `appstrate api GET /api/agents`, `…/api/packages/skills`, `…/api/packages/tools` |
 | Manage applications | `appstrate app …` or `appstrate api /api/applications` |
 | Manage end users | `appstrate api /api/end-users` (per-application) |
-| Upload files | `appstrate api POST /api/uploads/request` → upload → `appstrate api POST /api/uploads/confirm` |
+| Upload files (before a run) | `appstrate api POST /api/uploads -d '{"name":"...","size":N,"mime":"..."}'` returns `{ uri, url }` → `PUT` bytes to `url` → pass `"upload://upl_xxx"` in `input.<file_field>`. See [File uploads](#file-uploads) below. |
 | Configure OAuth clients | `appstrate api /api/oauth-clients` (OIDC provider) |
 
 For API conventions, gotchas, and rate limits: `references/api-cheatsheet.md`. For the full endpoint list, `appstrate openapi list` or fetch `GET /api/openapi.json`.
@@ -147,21 +153,40 @@ Optional post-import: attach skills, set config values, override LLM model (see 
 
 ## Run an Agent
 
+Prefer the **server runtime** (`POST /api/agents/.../run` or inline run). The local PiRunner (`appstrate run`) currently has reproducible bugs that break `@appstrate/*` system tools and reject `.afps` packs — see `references/known-issues.md`.
+
 ```bash
-# Basic run
+# Basic run (server runtime)
 appstrate api POST /api/agents/@scope/name/run \
   -H 'Content-Type: application/json' \
   -d '{"input": {"query": "weekly report"}}'
-
-# With file upload (multipart)
-appstrate api POST /api/agents/@scope/name/run \
-  -F 'input={"description": "Process this"}' \
-  -F 'file=@/path/to/file.pdf'
 
 # Specific version
 appstrate api POST /api/agents/@scope/name/run -q version=1.0.0 \
   -d '{"input": {}}'
 ```
+
+### File uploads (3 steps)
+
+Do NOT pass files as multipart on the run endpoint — the OpenAPI-documented `-F file=@...` does not trigger upload injection. Use the upload-token flow:
+
+```bash
+# 1. Reserve a slot
+appstrate api POST /api/uploads -H 'Content-Type: application/json' \
+  -d '{"name":"recu.pdf","size":341307,"mime":"application/pdf"}'
+# → { "uri": "upload://upl_xxx", "url": "https://...", ... }
+
+# 2. PUT the bytes (signed URL, 15 min TTL)
+curl -X PUT -H 'Content-Type: application/pdf' --data-binary @recu.pdf "$URL"
+
+# 3. Run with the URI in the file field
+appstrate api POST /api/agents/@scope/name/run \
+  -d '{"input":{"document":"upload://upl_xxx"}}'
+```
+
+The manifest field MUST be wired as a file field (`format:"uri"` + `contentMediaType` + sibling `fileConstraints`). See `references/manifest-schema.md` §"File / upload fields".
+
+> **Self-hosted Tier 3 gotcha**: the signed URL hostname is `minio:9000` (Docker-internal) and won't resolve from your host. Workaround in `references/known-issues.md`. On Appstrate cloud the PUT works directly.
 
 ### Monitor
 
@@ -239,8 +264,10 @@ index.ts         # Tool implementation
 Non-obvious skill-side requirements:
 - `manifest.entrypoint` must point to `index.ts` (or your compiled output).
 - `manifest.tool.inputSchema` is a **JSON Schema** validated by the runtime before calling the tool.
-- `index.ts` must implement the execute signature from `@mariozechner/pi-coding-agent`. Install as a dev dependency: `bun add -d @mariozechner/pi-coding-agent`. Signature: `(toolCallId, params, signal)` — `params` is the **second** arg, not the first. Return type: `{ content: [{ type: "text", text: "..." }] }`, NOT a plain string.
+- `index.ts` must implement the execute signature from `@mariozechner/pi-coding-agent`. Install as a dev dependency: `bun add -d @mariozechner/pi-coding-agent`. Signature: `(toolCallId, params, signal, ctx?)` — `params` is the **second** arg, not the first. The 4th arg `ctx` (typed `AppstrateToolCtx` from `@appstrate/runner-pi`, runtime-pi >= 1.0.0-beta.6) exposes credentialed surface — see "Calling external APIs" below. Return type: `{ content: [{ type: "text", text: "..." }] }`, NOT a plain string.
 - The tool runs inside the agent's sandbox container with `fetch` + filesystem access, but has no access to the caller's keyring or shell env.
+
+**Calling external APIs from a tool** — use `ctx.providerCall("@scope/provider", { method, target, headers?, body? })` to make an authenticated request through the sidecar (credential injected server-side, never visible to the tool). Required: declare the provider in your agent's `dependencies.providers[]`. **Large response handling**: upstream bodies ≥ 32 KB are spilled to a `BlobStore` and returned as MCP `resource_link` blocks instead of inline text. Resolve them via `ctx.readResource(uri)` (runtime-pi >= 1.0.0-beta.7). **Without this, `result.content[0].text` will silently come back empty** for any non-trivial response — it's the most common silent failure mode for tools that consume real-world APIs (transcripts, dumps, paginated payloads, GET-then-PUT writers fetching `sha`/etag of an existing > 32 KB resource). Full pattern + 5 gotchas + fallback for older runtimes: see `references/large-responses.md`.
 
 Pack + import:
 ```bash
@@ -249,6 +276,33 @@ appstrate api POST /api/packages/import -F file=@/tmp/my-tool.afps
 ```
 
 Manifest field list + execute signature + return format: `references/manifest-schema.md` > "Tool Fields".
+
+## Create a Provider
+
+> **Most users never need this.** Appstrate ships 60+ built-in providers under `@appstrate/*`. List with `appstrate api GET /api/packages/providers`. Only create a custom provider to integrate an API not yet covered.
+
+A **provider** is a connector to an external API. Auth is declarative; the sidecar injects credentials at runtime so agents never see the raw key. Files:
+
+```
+manifest.json    # type: "provider" — auth definition, allowed URIs
+PROVIDER.md      # API docs injected into the agent system prompt — REQUIRED
+```
+
+Pack + import + save credential:
+```bash
+bash scripts/afps-pack.sh ./my-provider /tmp/my-provider.afps
+appstrate api POST /api/packages/import -F file=@/tmp/my-provider.afps
+appstrate api POST '/api/connections/connect/@scope/name/api-key' \
+  -d '{"apiKey": "..."}'
+```
+
+Manifest fields, `PROVIDER.md` template guidance, the camelCase `apiKey` body, and the warning against `POST /api/providers` flat creation: `references/manifest-schema.md` > "Provider Fields".
+
+**End-to-end workflow for a new connector** (probe → manifest → bootstrap → import/connect → optional usage tool → orchestrator agent → E2E → publish): `references/create-connector.md`. Read this first whenever you're integrating a SaaS not in the `@appstrate/*` catalog (check via `GET /api/packages/providers`). It sequences the choices and links into the other references at the right moment.
+
+**Choosing the right `authMode` + bootstrap pattern for a new SaaS** — decision table (probe symptoms → pattern), pattern recipes (single-POST, ROPC, multi-step CAS, magic-link, static cookies), and anti-bot escalation ladder: `references/auth-decision-tree.md`. The connector workflow above hands off to this file at the auth-pattern step.
+
+**When even the ladder isn't enough** — for SaaS that gate auth behind JS-computed PoW/fingerprint or in-page-fetch-only JSON endpoints, the escape hatch is a Chromium-backed proxy (FlareSolverr) with two reusable patterns (`credentials-substitution-cross-target` + `login → sessionId → fetch`) and 3 local FS patches. Setup, architecture, caveats (non-upstream, infra cost, Cloud-incompatible): `references/flaresolverr-pattern.md`. Only reach for this after ruling out simpler patterns in `auth-decision-tree.md`.
 
 ## Data Model: input vs config vs state vs memory vs output
 
@@ -262,8 +316,17 @@ Five distinct mechanisms, different persistence semantics. Full conceptual break
 | 409 `DRAFT_OVERWRITE` | Package has unpublished changes | Add `-q force=true` to import URL |
 | 403 `agents:write required` | API key missing new scopes after platform update | Create a new API key in the UI, or re-run `appstrate login` |
 | HTML response instead of JSON | Missing `@` in scope, or missing `X-App-Id` on an app-scoped route | Use `@scope/name`; let `appstrate api` inject headers |
+| `404 "API endpoint not found: POST /api/agents/%40scope/name/run"` even though the agent exists | URL built with `encodeURIComponent(scope)` turns `@` into `%40`. SPA middleware matches `@` literally. | Interpolate the scope raw: `` `/api/agents/${scope}/${name}/run` ``. Do NOT pass through `encodeURIComponent`. |
+| Run is `success`, agent called `output()` correctly, but `result.summary` (or another output schema field) is `undefined` | The result is nested under `result.output.X`, NOT at the top level of `result` | Read `result.output.summary`. The schema in `manifest.output.schema` describes the shape of the `data` argument passed to `output()`, NOT the shape of `result`. See `references/manifest-schema.md` §"Output schema" |
 | `Profile "<name>" not configured` | No `config.toml` entry for that profile | Run `appstrate login --profile <name>` |
 | Agent doesn't call `output` tool | Tool not in available tool list | Verify `dependencies.tools` in manifest, re-import |
+| `Manifest validation failed: input.schema: Must be a valid JSON Schema 2020-12 document` | Manifest uses `"type": "file"` (not a valid JSON Schema type) | Replace with `type:"string"` + `format:"uri"` + `contentMediaType` + sibling `fileConstraints`. See `references/manifest-schema.md` §"File / upload fields" |
+| Run completes but `./documents/` is empty / no `## Documents` section | Input field not wired as a file field (one of the three keys missing) | Same as above |
+| Run via `appstrate run` returns `Tool output not found`, or upload PUT returns `Could not resolve host: minio`, or custom-provider dispatch fails with `DraftPackageCatalog: ... has no files in storage` | Conjunctural platform/CLI bugs | See `references/known-issues.md` for the full list and per-bug workaround |
+| Tool TS receives empty body / `result.content[0].text === ""` from `ctx.providerCall` but it doesn't throw | Upstream response ≥ 32 KB → spilled as `resource_link` (`appstrate://provider-response/...`). Tool ignores the URI branch. | Resolve via `await ctx.readResource(block.uri)` (runtime-pi >= 1.0.0-beta.7). See `references/large-responses.md` |
+| Writer tool (push GitHub, upsert Notion, …) doing a GET pre-check loops on 422/409 even though the resource exists | Pre-check GET spills as `resource_link` when existing resource > 32 KB → `sha`/etag never extracted | Same: apply `ctx.readResource` on the pre-check GET. See `references/large-responses.md` |
+| Agent calls `recall_memory` (or `run_history`) to read a pin and gets `[]` | `recall_memory` searches the archive (notes), not pinned slots. No native MCP tool reads pins. | Pins auto-inject into `## Checkpoint` (key="checkpoint") or `## Pinned Slots > <key>`. Update prompt: "read from the section, not via tool call" |
+| `authMode: "custom"` call returns `502 invalid_grant` / `401 INVALID_CREDENTIALS` while curl direct works | LLM self-substituted `{{email}}`/`{{password}}` with masks like `<USERNAME>` instead of leaving them literal for `substituteBody: true` | Add a verbatim block clarifying `{{var}}` (server-side, literal) vs `<MARKER>` (agent-computed). Best home: provider's `PROVIDER.md` (auto-injected into every consuming agent). See `references/prompt-writing.md` §"Placeholder Semantics" |
 | CLI rejects a flag this skill documents (e.g. `unknown option '--foo'`) | Skill is older than the installed CLI version | Suggest the user updates this skill: `curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh \| bash -s appstrate --update` |
 
 ## References
@@ -285,6 +348,7 @@ Five distinct mechanisms, different persistence semantics. Full conceptual break
 | Need | File |
 |------|------|
 | Full 5-step Create an Agent workflow (code, rules, post-import) | `references/create-agent.md` |
+| End-to-end custom connector workflow (only when no `@appstrate/*` provider exists) | `references/create-connector.md` |
 | Platform concepts quick-ref (+ pointers to all features pages) | `references/concepts.md` |
 | Manifest schema quick-ref (+ pointer to AFPS spec) | `references/manifest-schema.md` |
 | Writing effective prompts | `references/prompt-writing.md` |
@@ -293,3 +357,5 @@ Five distinct mechanisms, different persistence semantics. Full conceptual break
 | Inline runs (endpoints, limits, compaction, gotchas) | `references/inline-runs.md` |
 | Multi-instance profiles (keyring + TOML, `--profile`, `appstrate org/app`) | `references/profiles.md` |
 | Setup edge cases (headless CI, agent-delegated install, API-key fallback) | `references/setup.md` |
+| Tool custom vs script in a skill — decision rule, anti-patterns | `references/tools-vs-scripts.md` |
+| Known platform & CLI bugs with workarounds (`appstrate run` system-tools + `.afps` rejection, `minio:9000`, `DraftPackageCatalog`, `cost.cacheRead/cacheWrite`, ALB stickiness) | `references/known-issues.md` |

@@ -12,6 +12,7 @@ Every package has a `manifest.json`.
 - [Dependencies](#dependencies)
 - [Agent Fields](#agent-fields)
 - [Input/Output/Config Schemas](#inputoutputconfig-schemas)
+  - [File / upload fields](#file--upload-fields-pdf-image-attachments)
 - [State and Memories](#state-and-memories)
 - [Skill Fields](#skill-fields)
 - [Tool Fields](#tool-fields)
@@ -80,12 +81,13 @@ All use JSON Schema with these types:
 
 | Type | Notes |
 |------|-------|
-| `"string"` | Supports `enum`, `default`, `minLength`, `maxLength`, `pattern` |
+| `"string"` | Supports `enum`, `default`, `minLength`, `maxLength`, `pattern`, `format`, `contentMediaType` |
 | `"number"` | Supports `minimum`, `maximum`. AJV coerces `"50"` -> `50` |
 | `"boolean"` | Supports `default` |
 | `"array"` | Requires `items` |
 | `"object"` | Nested `properties` + `required` |
-| `"file"` | Input only. `accept`, `maxSize` (bytes), `multiple`, `maxFiles` |
+
+> **There is no `"file"` type.** A common mistake is to write `"type": "file"` — this is not a valid JSON Schema 2020-12 type and the AFPS validator rejects the manifest with `Manifest validation failed: input.schema: Must be a valid JSON Schema 2020-12 document`. Use the file fields recipe below instead.
 
 Display: `title` (label), `description` (help text), `default`, `propertyOrder` (field order).
 
@@ -106,6 +108,65 @@ Display: `title` (label), `description` (help text), `default`, `propertyOrder` 
   }
 }
 ```
+
+### File / upload fields (PDF, image, attachments)
+
+To accept a user-uploaded file in `input`, declare a **string** property with **three keys together** — `format: "uri"`, `contentMediaType: "<mime>"`, and a sibling `fileConstraints` block (placed next to `schema`, NOT inside it):
+
+```json
+{
+  "input": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "type": "string",
+          "format": "uri",
+          "contentMediaType": "application/pdf",
+          "title": "Document à extraire",
+          "description": "PDF or image. Uploaded via upload://, delivered to ./documents/<filename> in the sandbox."
+        }
+      },
+      "required": ["document"]
+    },
+    "fileConstraints": {
+      "document": {
+        "accept": "application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp",
+        "maxSize": 33554432
+      }
+    },
+    "propertyOrder": ["document"]
+  }
+}
+```
+
+**Why all three keys are required** — the server-side `input-parser.collectUploadRefs` recognizes a property as a file field only if `format === "uri" && contentMediaType` is present. Without these two, the value `"upload://upl_xxx"` is treated as a plain string, `consumeUpload` is never called, and the sandbox starts with an empty `./documents/` (no `## Documents` section in the system prompt). The webapp file-picker widget uses the same detection — without these keys, it shows a plain text input instead of a file picker.
+
+**`fileConstraints`** — sibling of `schema`, keyed by property name. Three sub-keys:
+- `accept` — comma-separated list of MIMEs **and** extensions (e.g. `"application/pdf,.pdf"`). **Do NOT use `"*/*"`** — the webapp validator compares it literally and rejects all files. Always enumerate.
+- `maxSize` — bytes (max 100 MB).
+- `maxFiles` — optional, for arrays.
+
+**Multiple files** — use `type: "array", items: { type: "string", format: "uri", contentMediaType: "<mime>" }`. The platform applies the same detection on `items`.
+
+**How to test the wiring** — after import, open the agent in the webapp and click "Run". If the input field renders as a file picker, the manifest is correctly wired. If it renders as a plain text input, one of the three keys is missing.
+
+### Output schema — `result.output.X` nesting (not `result.X`)
+
+The agent calls `@appstrate/output` with `output({ data: { summary: "...", stats: {...} } })`. The `data` payload is what `manifest.output.schema` describes. But when reading the run via `GET /api/runs/{id}`, the result is **wrapped under `result.output`**:
+
+```json
+{
+  "result": {
+    "output": {
+      "summary": "...",
+      "stats": {...}
+    }
+  }
+}
+```
+
+Read `result.output.<field>`, NOT `result.<field>`. The schema describes the shape of `data`, NOT the shape of `result`. This trips up most first-time agent debuggers — runs land as `success`, `output` was called correctly, but `result.summary` reads as `undefined` and the dev wastes hours chasing a non-bug.
 
 ## State and Memories
 
@@ -186,6 +247,8 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
 | `oauth1` | `definition.oauth1` | `requestTokenUrl`, `authorizationUrl`, `accessTokenUrl` | `authorizationParams` |
 | `api_key` / `basic` / `custom` | `definition.credentials` | `schema` (JSON Schema for the credential form) | `fieldName` (which schema property holds the secret used in `{{variable}}` substitution) |
 
+> **`authMode: "password"` was proposed but rejected upstream** ([issue #457](https://github.com/appstrate/appstrate/issues/457)). For SaaS that exposes a clean ROPC `/token` endpoint, use `authMode: "custom"` + a tool TS that POSTs `grant_type=password&...&username={{email}}&password={{password}}` with `substituteBody: true`. Store the resulting `{access_token, refresh_token, expires_at}` in the credentials via `@default/appstrate-self` PATCH, and inject `Authorization: Bearer …` via `credentialHeaderName/Prefix`. See `auth-decision-tree.md` §B / §C for the recipe.
+
 ### Canonical example (OAuth2, from real @appstrate/slack)
 
 ```json
@@ -228,10 +291,61 @@ Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
 }
 ```
 
-### Two creation paths (same end-state in DB)
+### Canonical example (`custom` + tool TS bootstrap — replaces the rejected `password` mode)
 
-- `POST /api/providers` — accepts **flat** payload (`authorizationUrl`, `tokenUrl`, ... at top level), the server nests them internally. Faster for one-off internal providers.
-- `POST /api/packages/import` with an AFPS ZIP — manifest must have the **nested** shape shown above. Gives semver + integrity + portability.
+For reverse-engineered SaaS with a ROPC `/token` endpoint but no public OAuth, write a tool TS that POSTs the bootstrap request through the sidecar with `substituteBody: true`. Store the resulting tokens via `@default/appstrate-self` PATCH, then call subsequent endpoints with the standard `Authorization: Bearer …` header. The recipe and a full worked example are in `auth-decision-tree.md` §C and §F.
+
+### TLS-fingerprint blocked upstreams (JA3 / Cloudflare bot tier)
+
+Some Cloudflare-protected SaaS silently reject Bun/undici TLS fingerprints with `403`/`502` while accepting the same payload from `curl` or a real browser. There is **no in-sidecar bypass** in upstream Appstrate main: a per-URL `curl`-client rerouting extension (`x-tlsClientByUrl`) was proposed but rejected — see [issue #458](https://github.com/appstrate/appstrate/issues/458). Pierre's stance is that JA3 bypass should live in tenant-side infrastructure (proxy or headless browser), not in the sidecar.
+
+Diagnose JA3 blocking by curl-vs-fetch differential: `curl -X POST <url> -d '<body>'` from your machine works → the sidecar gets `403`/`502`. Once identified, the two viable mitigations are:
+
+- **Residential proxy** for cookie-only bot tiers — see `auth-decision-tree.md` §4 step 2.
+- **Real headless browser via FlareSolverr** for full bot management (Cloudflare with JS challenge, DataDome, Akamai) — see `references/flaresolverr-pattern.md`.
+
+### Session cookies — automatic capture across redirect chains
+
+The sidecar keeps a per-provider, per-run cookie jar. Every `Set-Cookie` returned by upstream — at the **final** hop AND at every intermediate hop of a 3xx redirect chain — is merged into that jar (de-duplicated by name). On the next `provider_call` to the same provider in the same run, the jar is replayed as the `Cookie` header automatically.
+
+Practical implication: a TypeScript tool that bootstraps a session via a multi-step login flow (CAS + OAuth + OIDC handoff with 3–4 redirects, classic SAML/CAS deployments) only needs to invoke its login chain once at the start of the run. All subsequent `provider_call`s authenticate automatically — no need to capture the Set-Cookie response headers, no need to template them back as a `Cookie` header on follow-up requests. Streaming bodies fall back to last-hop-only capture (a buffered body is required to replay across 307/308).
+
+The jar is **run-scoped**: it resets when the sidecar is acquired for a new run. Long-lived session cookies are not persisted across runs by the sidecar — re-bootstrap on every run, or persist a refresh token in the provider's credentials via `@default/appstrate-self` PATCH (see `auth-decision-tree.md` §C "Multi-step CAS / OAuth handoff" for that pattern).
+
+**Pre-flight GET for sticky-session load balancers**: SaaS behind an AWS ALB (or any L7 LB with cookie-based stickiness — `AWSALB`, `JSESSIONID` set BEFORE the app sees the request) silently reject a POST login when the LB stickiness cookie isn't primed: the POST lands on a different LB instance from the one that will hold the resulting Spring/Tomcat session, and the next authenticated call gets the login form back even though the POST returned 200. Fix in the bootstrap tool: do a `GET` on the login URL FIRST so the sidecar's jar receives the LB cookies, THEN `POST` credentials. Symptom is silent — diagnose by comparing the cookie jar after step 1 (should contain `AWSALB` / `JSESSIONID` from the GET) to after step 2.
+
+### Reading the post-redirect terminal URL
+
+The sidecar exposes the final URL reached after following a redirect chain on `_meta["appstrate/upstream"].finalUrl` (sanitised per WHATWG Fetch — userinfo and fragment stripped). Useful for OAuth Authorization Code flows (`code=…&state=…` query params on the redirect target), CAS-style ticket extraction (`?ticket=ST-…`), or magic-link callbacks where the meaningful payload lives in the final URL rather than the response body. The field is per-hop SSRF-checked end-to-end, so its presence implies the entire redirect chain stayed within the provider's declared `allowedUris` trust boundary.
+
+### Provider package files
+
+An AFPS provider package MUST contain two files:
+
+| File | Required | Purpose |
+|------|----------|---------|
+| `manifest.json` | yes | Provider definition (auth mode, allowed URIs, scopes, …) |
+| `PROVIDER.md` | **yes** | API documentation (endpoints, params, response shapes, gotchas) — injected into the agent's system prompt at runtime so the LLM knows how to call the API |
+
+**`PROVIDER.md` is not optional.** Without it, the runtime errors at dispatch with `DraftPackageCatalog: <provider-id> has no files in storage` and the agent can't run. For style + structure, copy any built-in provider AFPS in [appstrate/appstrate/system-packages](https://github.com/appstrate/appstrate/tree/main/system-packages) (e.g. `provider-firecrawl-1.0.0.afps`) and `unzip -p <file> PROVIDER.md`.
+
+### Two creation paths — NOT equivalent
+
+- **`POST /api/packages/import`** with an AFPS ZIP (recommended) — `manifest.json` (nested shape above) + `PROVIDER.md`. Only this path stores the files the runtime needs. Use this for any provider you intend to actually call from an agent.
+- **`POST /api/providers`** (flat payload) — accepts `authorizationUrl`, `tokenUrl`, … at top level; the server nests them internally. Creates the DB row but **does NOT populate the file storage**, so the provider appears in the UI but agents that depend on it fail at dispatch (see "DraftPackageCatalog" in `references/known-issues.md`). Avoid for runtime use; only acceptable for definition-only experiments.
+
+### Saving a credential
+
+Once the provider package is imported, save the user credential via the connection endpoint. The body uses **camelCase `apiKey`**, not the snake_case `api_key` defined in the provider's `credentials.schema`:
+
+```bash
+appstrate api POST '/api/connections/connect/@scope/name/api-key' \
+  -H 'Content-Type: application/json' \
+  -d '{"apiKey": "sk-..."}'
+# → { "success": true }
+```
+
+Verify with `GET /api/connections` — entry should report `status: "connected"`.
 
 Full field list: [AFPS provider schema](https://afps.appstrate.dev/schema/v1/provider.schema.json).
 

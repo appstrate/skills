@@ -53,7 +53,7 @@ SSE endpoints accept the key via query param (EventSource can't send custom head
 
 ## Gotchas the reference docs don't make loud enough
 
-1. **Scope prefix `@` is mandatory.** `GET /api/agents/tractr/my-agent` without the `@` is swallowed by the SPA catch-all middleware and returns HTML 200 (not JSON, not 404). Always write `@tractr/my-agent`. Issue #215.
+1. **Scope prefix `@` is mandatory.** `GET /api/agents/your-org/my-agent` without the `@` is swallowed by the SPA catch-all middleware and returns HTML 200 (not JSON, not 404). Always write `@your-org/my-agent`. Issue #215.
 2. **API key auth needs NO `X-Org-Id` and NO `X-App-Id`.** A key is pinned to one org + one application; both are resolved from the key. Passing them is redundant and, for `X-App-Id` that conflicts with the key's pinned app, returns 400. See [/docs/api/authentication](https://appstrate.com/docs/api/authentication) §API keys.
 3. **Draft overwrite on import.** `POST /api/packages/import` returns 409 `DRAFT_OVERWRITE` when the package already has an unpublished draft. Add `-q force=true` to overwrite. Always prefer bumping the version instead.
 4. **Version param on runs.** Pin a specific version with `-q version=1.0.0`, or `-q version=latest` for the default dist-tag. Omit to use whichever version resolves for the caller's application.

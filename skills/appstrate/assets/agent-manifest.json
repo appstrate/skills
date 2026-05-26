@@ -23,6 +23,27 @@
       "properties": {},
       "required": [],
       "propertyOrder": []
+    },
+    "_comment_file_fields": "To accept an uploaded file: declare a string property with format='uri' + contentMediaType='<mime>', and add a sibling fileConstraints.<propertyName> block (NOT inside schema). All three keys are required together. See references/manifest-schema.md §'File / upload fields'. Example below — uncomment, adapt, then remove _comment_* keys.",
+    "_example_with_file_field": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "title": "Question" },
+          "document": {
+            "type": "string",
+            "format": "uri",
+            "contentMediaType": "application/pdf",
+            "title": "Reference PDF",
+            "description": "Uploaded via upload://, available at ./documents/<filename> in the sandbox"
+          }
+        },
+        "required": ["query"]
+      },
+      "fileConstraints": {
+        "document": { "accept": "application/pdf,.pdf", "maxSize": 33554432 }
+      },
+      "propertyOrder": ["query", "document"]
     }
   },
 
