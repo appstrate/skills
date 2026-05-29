@@ -75,10 +75,10 @@ Flat maps `{ "@scope/name": "semverRange" }` (`^1.0.0`, `~1.0.0`, `*`, …). All
 }
 ```
 
-- `tools`: `string[]` (allowlist of the integration's tools the agent may call) or `"*"` (all — only if the integration sets `allow_undeclared_tools: true`). Absent ≡ `[]` ≡ zero tools (least privilege).
+- `tools`: `string[]` allowlist (or `"*"` — only if the integration sets `allow_undeclared_tools: true`). **Only meaningful for MCP integrations** (`source.kind: local`/`remote`). Values MUST be real tool names from the integration's `manifest.tools_policy` — inventing names is rejected at import (`unknown_tool`). For a `source.kind: none` integration (REST via `{ns}__api_call`), there are **no named tools** — omit `tools` entirely. Absent ≡ `[]` ≡ zero MCP tools.
 - `scopes`: optional explicit OAuth scopes (escape hatch); normally inferred from `tools`.
-- `auth_key`: disambiguates a multi-auth integration.
-- Each key MUST match a `dependencies.integrations` entry (orphan keys are rejected).
+- `auth_key`: one of the integration's real `manifest.auths` keys (e.g. `primary`, `oauth`, `pat`). A wrong key is rejected.
+- Each key MUST match a `dependencies.integrations` entry (orphan keys are rejected). Verify tools + auth keys via `GET /api/integrations` before referencing them.
 
 > **No `providers_configuration` anymore.** Tool/scope selection drives OAuth scope inference at consent time.
 

@@ -28,6 +28,17 @@ appstrate api GET /api/integrations
 appstrate api GET /api/packages/agents
 ```
 
+**Inspect an integration before referencing it** — the import will be **rejected** if you reference tools or an `auth_key` that the integration doesn't actually expose. Read its manifest from the list (`GET /api/integrations`, each item has `id`, `source`, `manifest`) and check three things:
+
+- `manifest.source.kind` — `none` (REST via `{ns}__api_call`, **no named tools**), or `local`/`remote` (MCP server, **named tools**).
+- `manifest.auths` — the real auth keys (e.g. `primary`, or `oauth`/`pat`). Use one of these as `auth_key`.
+- `manifest.tools_policy` — the real tool names (only present for MCP integrations). These are the only valid values for `integrations_configuration.<id>.tools`.
+
+```bash
+appstrate api GET /api/integrations -o /tmp/ints.json
+# then inspect, e.g. the gmail entry's manifest.{source.kind, auths, tools_policy}
+```
+
 There is **no** `/api/packages/tools` or `/api/packages/providers` listing — those package families were removed. MCP servers and integrations are selected **in the manifest** (`dependencies` + `integrations_configuration`), not via a separate REST call. Runtime tools are a fixed built-in set (see `runtime-tools.md`).
 
 > **Before depending on an MCP server**, apply the arbitrage in `tools-vs-scripts.md`. Deterministic local transformations (parse a file, generate a CSV, rename fields) belong in a companion skill's `scripts/`, not in a packaged MCP server. And if a step needs LLM reasoning, the agent itself does it — no server, no script.
@@ -49,12 +60,12 @@ Start from `assets/agent-manifest.json`. Key fields:
   "dependencies": {
     "skills": {},
     "mcp_servers": {},
-    "integrations": { "@appstrate/gmail": "^1.0.0" }
+    "integrations": { "@appstrate/gmail-mcp": "^1.0.0" }
   },
   "integrations_configuration": {
-    "@appstrate/gmail": {
-      "tools": ["list_messages", "send_message"],
-      "auth_key": "oauth"
+    "@appstrate/gmail-mcp": {
+      "tools": ["list_labels", "get_thread"],
+      "auth_key": "primary"
     }
   },
   "runtime_tools": ["output", "report"],
@@ -65,7 +76,13 @@ Start from `assets/agent-manifest.json`. Key fields:
 ```
 
 - **`dependencies.integrations`** / **`dependencies.mcp_servers`** / **`dependencies.skills`** are flat maps `{ "@scope/name": "semverRange" }`. The legacy keys `dependencies.tools` and `dependencies.providers` are **rejected at publish** (`LegacyDepKeyError`).
-- **`integrations_configuration.<id>`** selects which of the integration's tools the agent may call (`tools: string[]` or `"*"`), optional `scopes` (escape hatch), and `auth_key` (disambiguates a multi-auth integration). Each key must match a `dependencies.integrations` entry. Tool selection drives OAuth scope inference at consent time — least privilege by default. Full integration model: `create-integration.md`.
+- **`integrations_configuration.<id>`** configures a depended-on integration. Each key must match a `dependencies.integrations` entry. Fields:
+  - `tools: string[]` (or `"*"`) — **only for MCP integrations** (`source.kind: local`/`remote`). Values MUST be real tool names from the integration's `manifest.tools_policy` (verify via `GET /api/integrations` — see Step 0). Inventing tool names → **import rejected** (`unknown_tool`). Tool selection drives OAuth scope inference (least privilege).
+  - For a `source.kind: none` integration (plain REST via `{ns}__api_call`, e.g. `@appstrate/gmail`), **do NOT list `tools`** — it exposes none. Just declare the dependency and (optionally) the `auth_key`; the agent calls the API through the `{ns}__api_call` tool.
+  - `auth_key` — one of the integration's real `manifest.auths` keys (e.g. `primary`, `oauth`, `pat`). Disambiguates a multi-auth integration; a wrong key is rejected.
+  - `scopes` — optional explicit OAuth scopes (escape hatch; normally inferred from `tools`).
+
+  Full integration model: `create-integration.md`.
 - **`runtime_tools`** replaces the old `@appstrate/output` dependency. See `runtime-tools.md`.
 
 ### File / upload input fields
