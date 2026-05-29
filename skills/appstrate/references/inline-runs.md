@@ -25,15 +25,18 @@ appstrate api POST /api/runs/inline \
   -H 'Content-Type: application/json' \
   -d '{
     "manifest": {
-      "$schema": "https://afps.appstrate.dev/schema/v1/agent.schema.json",
+      "$schema": "https://schemas.afps.dev/v0/agent.schema.json",
       "name": "@inline/one-shot",
-      "displayName": "One-shot summary",
+      "display_name": "One-shot summary",
       "version": "0.0.0",
       "type": "agent",
-      "schemaVersion": "1.0",
+      "schema_version": "0.1",
       "dependencies": {
-        "tools": { "@appstrate/output": "^1.0.0" }
-      }
+        "skills": {},
+        "mcp_servers": {},
+        "integrations": {}
+      },
+      "runtime_tools": ["output"]
     },
     "prompt": "Summarize the attached document in three bullet points.",
     "input": { "docId": "doc_123" }
@@ -51,37 +54,29 @@ Stream progress: `GET /api/realtime/runs/{runId}` (SSE). Or poll `GET /api/runs/
 
 | Field | Type | Required | Notes |
 |---|---|:-:|---|
-| `manifest` | object | yes | Full AFPS agent manifest. Dependencies must reference **existing** org/system skills/tools/providers — registry-only, no inline new packages |
+| `manifest` | object | yes | Full AFPS agent manifest (snake_case). Dependencies must reference **existing** org/system `skills` / `mcp_servers` / `integrations` — registry-only, no inline new packages |
 | `prompt` | string | yes | Contents of `prompt.md` |
 | `input` | object | no | Validated against `manifest.input.schema` (AJV) |
 | `config` | object | no | Per-run config overrides validated against `manifest.config.schema` (AJV) |
-| `providerProfiles` | `Record<providerId, uuid>` | no | Override caller's default connection profile per provider |
 | `modelId` | string \| null | no | Per-run model override |
 | `proxyId` | string \| null | no | Per-run proxy override, or `"none"` to disable |
+
+> **No `connection_overrides` inline.** Inline runs do not accept per-run integration connection pinning. Integration connection resolution falls back to the actor's pins / org defaults / accessible-connection fallback (the resolution cascade described in `profiles.md`). The old `providerProfiles` field was removed entirely.
 
 ### Response codes
 
 | Code | Meaning |
 |---|---|
 | 202 | Run accepted, `{ runId, packageId }` returned |
-| 400 | Invalid manifest, schema mismatch, oversized payload, or wildcard URI when disallowed |
+| 400 | Invalid manifest, schema mismatch, or oversized payload |
 | 401 | Auth missing |
 | 409 | Idempotency key in progress |
 | 422 | Idempotency body mismatch |
 | 429 | Rate limit (see `INLINE_RUN_LIMITS`) |
 
-### Routing per-provider through a non-default connection profile (`providerProfiles`)
+### Integration connections for an inline run
 
-The caller's default connection profile binds every provider in the run to its credentials by default. When you need a *different* profile for one provider only — typical for multi-account setups (two Gmail mailboxes, several accounts of the same SaaS, a personal vs. work Slack) — pass `providerProfiles` as a `{providerId: profileUUID}` map. Only the listed providers are overridden; the rest stay on the default profile.
-
-```bash
-appstrate api POST /api/runs/inline \
-  -H 'Content-Type: application/json' \
-  -d '{ "manifest": {...}, "prompt": "...", "input": {},
-        "providerProfiles": { "@appstrate/gmail": "cc9981ba-..." } }'
-```
-
-List available profile UUIDs with `appstrate api GET /api/connection-profiles`. The same `providerProfiles` field is accepted by the persistent run endpoint `POST /api/agents/{scope}/{name}/run` (identical shape) and is honored by `POST /api/agents/{scope}/{name}/schedules` for scheduled runs.
+Inline runs cannot pin a specific integration connection — there is no inline `connection_overrides`. The platform resolves each integration's connection through the standard cascade (admin pin → org default → member pin → org default soft → accessible-connection fallback; see `profiles.md`). For multi-account setups where you must choose a specific connection, use a **persisted** run (`POST /api/agents/{scope}/{name}/run`) which accepts `connection_overrides`, or set a member pin beforehand.
 
 ## Dry-run validation
 
@@ -93,7 +88,7 @@ appstrate api POST /api/runs/inline/validate \
   -d '{ "manifest": {...}, "prompt": "...", "input": {...}, "config": {...} }'
 ```
 
-Runs the same preflight as execute (manifest shape → config/input AJV → provider readiness).
+Runs the same preflight as execute (manifest shape → config/input AJV → dependency resolution).
 
 | Code | Body |
 |---|---|
@@ -158,10 +153,9 @@ Configured as a JSON object in the `INLINE_RUN_LIMITS` env var. Strictly validat
 | `manifest_bytes` | 65536 | Max serialized manifest size |
 | `prompt_bytes` | 200000 | Max UTF-8 prompt size |
 | `max_skills` | 20 | Max skill dependencies |
-| `max_tools` | 20 | Max tool dependencies |
-| `max_authorized_uris` | 50 | Max per-provider `authorizedUris` entries |
-| `wildcard_uri_allowed` | false | Whether `*` is allowed in `authorizedUris` |
 | `retention_days` | 30 | Days before compaction NULLs manifest/prompt |
+
+> `max_tools`, `max_authorized_uris`, and `wildcard_uri_allowed` were **removed** (not renamed). Tool selection now lives in `integrations_configuration`, and URL boundaries live in each integration's `authorized_uris` — neither is a per-inline-run limit anymore.
 
 Also governed by the broader `PLATFORM_RUN_LIMITS` (shared with every run path):
 `timeout_ceiling_seconds` (1800), `per_org_global_rate_per_min` (200), `max_concurrent_per_org` (50).
@@ -178,7 +172,7 @@ Also governed by the broader `PLATFORM_RUN_LIMITS` (shared with every run path):
 
 ## Gotchas
 
-1. **Dependencies are registry-only** — Inline manifests can depend on skills/tools/providers by ID, but cannot define new ones inline. If a dep doesn't exist in org/system catalog, preflight fails with 400.
+1. **Dependencies are registry-only** — Inline manifests can depend on `skills` / `mcp_servers` / `integrations` by ID, but cannot define new ones inline. If a dep doesn't exist in the org/system catalog, preflight fails with 400. (Note: `dependencies.tools` / `dependencies.providers` are rejected — use `mcp_servers` / `integrations`.)
 2. **Not schedulable** — Schedules require a persisted package. Schedule a regular agent instead.
 3. **Validate shares the rate bucket** — Iterative dev loops calling `/validate` every keystroke will hit 429. Debounce.
 4. **`manifest_bytes` is serialized JSON size** — Not the number of dependencies. A manifest with many defaults/descriptions can exceed the limit.

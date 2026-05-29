@@ -1,6 +1,8 @@
-# Profiles — Managing Multiple Appstrate Instances
+# Profiles & Integration Connections
 
-> **Canonical reference**: [/docs/using-appstrate/cli](https://appstrate.com/docs/using-appstrate/cli) covers the CLI itself (commands, flags, profile workflow). This file extends it with skill-specific operational knowledge: keyring/TOML layout, resolution order, prompt-to-profile inference, cross-profile iteration patterns — things a coding agent needs that aren't in the user-facing docs.
+> **Canonical reference**: [/docs/using-appstrate/cli](https://appstrate.com/docs/using-appstrate/cli) covers the CLI itself (commands, flags, profile workflow). This file extends it with skill-specific operational knowledge: keyring/TOML layout, resolution order, prompt-to-profile inference, cross-profile iteration patterns, and the **integration connections** model that replaced connection profiles.
+
+> **Two unrelated "profile" concepts — don't conflate them.** (1) **CLI profiles** (`-p, --profile`) select *which Appstrate instance* the CLI talks to (prod/local/dev). (2) The old **connection profile** — a per-actor bundle of provider credentials — **no longer exists.** Credentials are now **integration connections** resolved per-run via a cascade (see [Integration connections](#integration-connections)). The CLI `connections` command group and the `appstrate run --connection-profile` / `--provider-profile` flags were removed; `appstrate run --providers` is now `--integrations <remote|local|none>`.
 
 ## Table of Contents
 
@@ -11,6 +13,7 @@
 - [Re-pinning org or app on an existing profile](#re-pinning-org-or-app-on-an-existing-profile)
 - [Inferring a profile from the user prompt](#inferring-a-profile-from-the-user-prompt)
 - [Cross-profile operations](#cross-profile-operations)
+- [Integration connections](#integration-connections)
 - [Gotchas](#gotchas)
 
 For users who pilot multiple Appstrate instances (production, staging, local dev, per-project), the `appstrate` CLI uses **named profiles**. The profile name is free-form (conventionally `prod`, `local`, `dev`); every command accepts `-p, --profile <name>` to target one.
@@ -178,6 +181,38 @@ done
 ```
 
 Each invocation goes through the CLI, which picks the right bearer token + org/app headers for that profile — no env leaks, no manual header juggling.
+
+## Integration connections
+
+The legacy "connection profile" (one per-actor bundle of provider credentials, switched with a CLI command group) is **gone**. It is replaced by **integration connections**: per-actor, per-integration credentials that can be **multi-auth** (an OAuth connection and a PAT connection for the same integration coexist), with admin/member **pins**, org **defaults**, and a resolution **cascade** evaluated at run launch.
+
+### Model
+
+- A **connection** is one set of credentials for one integration's one auth, owned by an actor (a member, or an admin-scoped org connection). Multiple connections per integration are allowed simultaneously — the connection picker offers every declared auth; there is no single-auth gate.
+- **Pins** bind a specific connection to use for an integration. An **admin pin** (org-wide, `user_id = NULL`) and a **member pin** (per-user) can both exist; admin pins outrank member pins.
+- **Org defaults** set a fallback connection for an integration, either **enforced** (cannot be overridden) or **soft** (overridable).
+- A **run override** (`connection_overrides` on a persisted run) and a **schedule override** (`connection_overrides` frozen at schedule create) pin a connection for that run / schedule only.
+
+### Resolution cascade (7 mechanisms, first match wins)
+
+When a run starts, each integration's connection is resolved in this order:
+
+1. **Admin pin** (org pin, `user_id = NULL`)
+2. **Org default — enforce** (non-overridable org default)
+3. **Run override** (`runs.connection_overrides`)
+4. **Schedule override** (frozen `connection_overrides` on the schedule)
+5. **Member pin** (the actor's own pin)
+6. **Org default — soft** (overridable org default)
+7. **Fallback** over the actor's accessible connections: exactly 1 → auto-selected; 0 → `not_connected`; N → `must_choose`
+
+If resolution can't produce an accessible connection for a required integration, the run fails **412 `missing_integration_connection`**.
+
+### Relevant routes
+
+- **Actor-scoped** (the calling user): `GET /api/me/connections`, `DELETE /api/me/connections/{connectionId}`, and `GET|PUT|DELETE /api/me/integration-pins`.
+- **Per-integration** (app-scoped, `{packageId}` = the integration package): `GET|PATCH /api/integrations/{packageId}/connections[/{connectionId}]`, `GET|PUT|DELETE /api/integrations/{packageId}/pins[/{agentPackageId}]`, `GET|PUT|DELETE /api/integrations/{packageId}/default`, `GET /api/integrations/{packageId}/agent-resolution/{agentPackageId}` (shows what the cascade would pick for a given agent). Connect a credential with `POST /api/integrations/{packageId}/auths/{authKey}/connect/{fields,oauth2}`.
+
+Full integration authoring model (auths, delivery, scopes, ConnectStrategy): `create-integration.md`.
 
 ## Gotchas
 

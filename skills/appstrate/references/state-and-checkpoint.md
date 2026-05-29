@@ -1,6 +1,6 @@
 # State and pinned slots — `pin(key)` rendering in the system prompt
 
-Cross-run state for an agent is stored via the `pin({ key, content, scope? })` system tool. The persisted entries live in the `package_persistence` table and are surfaced to the next run as **sections in the system prompt** — no tool call needed to read them back. This document covers the rendering rules, the recommended prompt pattern, and a handful of gotchas that each cost ~30 min of debug if missed.
+Cross-run state for an agent is stored via the `pin({ key, content, scope? })` runtime tool (`pin` and `note` are **`runtime_tools`**, opt-in per agent — not packages). The persisted entries live in the `package_persistence` table and are surfaced to the next run as **data-only sections in the system prompt** — no tool call needed to read them back. The *usage* of `pin`/`note` is documented by their MCP tool descriptions (the prompt never lists tools); this document covers the rendering rules, the recommended prompt pattern, and a handful of gotchas that each cost ~30 min of debug if missed.
 
 ---
 
@@ -10,6 +10,8 @@ Cross-run state for an agent is stored via the `pin({ key, content, scope? })` s
 
 - `key="checkpoint"` renders in section `## Checkpoint` of the system prompt (dedicated, single slot).
 - Any other key renders in `## Pinned Slots`, with each slot as a `### <key>` subheading. Plain string contents render as-is; structured contents are wrapped in a fenced JSON block. Keys are sorted alphabetically for deterministic output.
+
+`## Checkpoint`, `## Pinned Slots`, and `## Memory` (pinned memos) are **data-only** sections the platform auto-injects. The prompt does not (and must not) describe `pin`/`note` usage — that comes from the tools' MCP descriptions.
 
 ---
 
@@ -68,11 +70,11 @@ These three buckets are isolated by design (cross-actor reads would leak state).
 
 There's no `list_pins({ key? })` MCP tool. The agent's only read paths are the prompt sections and (indirectly) `recall_memory` for archive notes. If you genuinely need to enumerate slots from inside a run, you can't — design around it (use a single `checkpoint` slot with structured content instead of N independent slots).
 
-The admin endpoint `GET /api/agents/{scope}/{name}/persistence` lists all stored slots, but it's not callable from the runtime — only from the dashboard/CLI/admin SDK.
+The admin endpoint `GET /api/agents/{scope}/{name}/persistence?kind=pinned|memory` lists all stored slots, but it's not callable from the runtime — only from the dashboard/CLI/admin SDK. Filter the actor with the **snake_case** query params `actor_type` / `actor_id` (these were `actorType`/`actorId` before — the wire is snake_case now).
 
 ### 4. `/persistence` response shape is `{ pinned: [...], memories: [...] }`
 
-The admin endpoint returns `{ pinned: [{id, key, content, runId, ...}], memories: [{id, content, runId, ...}] }`. **NOT** the standard `{ data: [...] }` envelope. Easy to miss when scripting against the API — `jq '.data'` will silently return `null`.
+The admin endpoint returns `{ pinned: [{id, key, content, run_id, actor_type, actor_id, ...}], memories: [{id, content, run_id, actor_type, actor_id, ...}] }`. **NOT** the standard `{ data: [...] }` envelope. Easy to miss when scripting against the API — `jq '.data'` will silently return `null`. Row fields are snake_case (`actor_type`/`actor_id`, not `actorType`/`actorId`).
 
 ### 5. The reserved key `"checkpoint"`
 

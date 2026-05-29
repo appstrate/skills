@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schemas.afps.dev/v0/mcp-server.schema.json",
+  "name": "@SCOPE/CHANGE-ME-mcp",
+  "version": "1.0.0",
+  "type": "mcp-server",
+  "schema_version": "0.1",
+  "manifest_version": "0.3",
+  "display_name": "MCP Server Display Name",
+  "description": "What this MCP server exposes (tools backed by a packaged server process).",
+  "author": "author-name",
+  "license": "Apache-2.0",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.ts",
+    "mcp_config": {
+      "command": "bun",
+      "args": ["server/index.ts"]
+    }
+  },
+  "tools": [
+    {
+      "name": "my_tool",
+      "description": "Description the agent reads (via tools/list) when deciding to call this tool."
+    }
+  ],
+  "_meta": {
+    "dev.appstrate/mcp-server": {
+      "runtime": "bun"
+    }
+  }
+}

@@ -149,6 +149,29 @@ appstrate login --profile dev   --instance https://dev.appstrate.internal
 
 Pick the active profile per-call with `-p, --profile`, via the `APPSTRATE_PROFILE` env var, or set one as default in `config.toml`. Full guide: `references/profiles.md`.
 
+### Step 5: Connect an LLM model
+
+Agent runs fail at dispatch if the org has no LLM model connected. Two paths:
+
+- **UI (simplest)**: webapp → **Settings → Models → Add a model**. Pick the model provider, paste the credential, save.
+- **API (scriptable)**: there is **no** `/api/provider-keys` endpoint. Add a model credential, then register the model:
+
+  ```bash
+  # 1. Store a provider credential (api_key providers only; OAuth uses the pairing flow).
+  #    Returns a credential with an `id`. Discover providerIds via GET /api/model-provider-credentials/registry.
+  appstrate api POST /api/model-provider-credentials \
+    -H 'Content-Type: application/json' \
+    -d '{ "providerId": "anthropic", "apiKey": "sk-ant-..." }'
+
+  # 2. Register a model against that credential id (NOT providerId — the apiShape/baseUrl
+  #    are resolved from the credential).
+  appstrate api POST /api/models \
+    -H 'Content-Type: application/json' \
+    -d '{ "modelId": "claude-sonnet-4-20250514", "credentialId": "<id-from-step-1>" }'
+  ```
+
+  These endpoints use camelCase carve-outs (`providerId`, `modelId`, `credentialId`, `displayName`). The validator has a gotcha around the `cost` object — see `references/known-issues.md`.
+
 ---
 
 ## Fallback: API key for non-CLI environments

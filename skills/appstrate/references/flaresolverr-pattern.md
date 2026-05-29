@@ -1,8 +1,12 @@
 # FlareSolverr escape hatch — when the sidecar isn't enough
 
-Read this when **Patterns A-F in `auth-decision-tree.md` aren't viable**: the SaaS gates auth behind machinery the Bun sidecar can't run (real Chromium fingerprint, JS-computed cookies, anti-bot challenges, in-page-only `fetch()`). FlareSolverr — a Chromium-backed proxy — bypasses these by running an actual headless browser, then exposing its cookie jar + navigation API over HTTP.
+Read this when **Patterns A-F in `auth-decision-tree.md` aren't viable**: the SaaS gates auth behind machinery the Bun sidecar can't run (real Chromium fingerprint, JS-computed cookies, anti-bot challenges, in-page-only `fetch()`). FlareSolverr — a Chromium-backed solver — bypasses these by running an actual headless browser, then exposing its cookie jar + navigation API over HTTP.
+
+**Where this fits in the AFPS 2.0 model**: model the SaaS as an **integration** with **`source.kind: local`** — a sandboxed runner container that shells out to the FlareSolverr solver — or, when the browser work only happens at credential-acquisition time, as an integration whose `custom` auth uses a **`connect.tool`** that orchestrates the solver once (`run_at: link`). Either way the old "two providers + global `provider_call`" framing is gone: there is no `provider` type and no global `provider_call`; calls go through the integration's `{ns}__api_call` capability.
 
 This is an **escape hatch**, not a default. The sidecar pipeline + the patterns in `auth-decision-tree.md` cover ~90% of real SaaS. Use FS when you've ruled out the cheaper paths and have one of the symptoms below.
+
+> ⚠️ **Code examples below carry over from the 1.x model and need re-architecting for the integration model — they have NOT been validated end-to-end on `feat/integrations`.** Two correct shapes: (a) inside a `source.kind: local` **mcp-server**, your server code issues its own `fetch()` to FlareSolverr, reading the credential from its environment (`delivery.env`) — the sidecar injects it, the code never hardcodes it; (b) from the agent, outbound calls go through the integration's `{ns}__api_call` MCP tool. There is **no `ctx.apiCall`/`ctx.providerCall` method** — where the snippets show `ctx.apiCall({...})`, read it as "issue this credentialed request" (a `fetch()` in an mcp-server, or an `{ns}__api_call` from the agent). The remaining `<!-- TODO -->` markers flag the exact bits to confirm against a live instance before relying on them.
 
 ## Table of Contents
 
@@ -37,7 +41,7 @@ If you don't see your symptom here, you're probably hitting something more basic
 ┌───────────────────────────────────────────────────────────────────────┐
 │ Appstrate run                                                         │
 │                                                                       │
-│  ┌──────────────┐  providerCall(@scope/X, target: FS, body:{ … })     │
+│  ┌──────────────┐  {ns}__api_call(target: FS, body:{ … })             │
 │  │ tool TS      │ ───────────────────────────────────────────────┐    │
 │  │ (login)      │                                                ▼    │
 │  └──────────────┘                              ┌────────────────────┐ │
@@ -45,9 +49,9 @@ If you don't see your symptom here, you're probably hitting something more basic
 │         │ {status, sessionId}                  │  - reads @scope/X  │ │
 │         │                                      │    credentials     │ │
 │  ┌──────────────┐                              │  - substitutes     │ │
-│  │ tool TS      │   providerCall(@default/    │    {{email}}/…     │ │
-│  │ (inbox-fetch)│   flaresolverr-fetch, …)    │  - POSTs JSON to   │ │
-│  └──────────────┘ ──────────────────────────► │    FS endpoint     │ │
+│  │ tool TS      │   {ns}__api_call(target: FS) │    {{email}}/…     │ │
+│  │ (inbox-fetch)│ ───────────────────────────► │  - POSTs JSON to   │ │
+│  └──────────────┘                              │    FS endpoint     │ │
 │                                                └─────────┬──────────┘ │
 │                                                          │            │
 └──────────────────────────────────────────────────────────┼────────────┘
@@ -66,11 +70,9 @@ If you don't see your symptom here, you're probably hitting something more basic
                                                   └───────────────┘
 ```
 
-Two providers cooperate:
-- **`@scope/<saas>`** — the SaaS provider you authored. Its `authorizedUris` MUST include `http://host.docker.internal:8191/**` so the sidecar will let your tool send POSTs there.
-- **`@default/flaresolverr`** — the FS provider. Empty credentials (no auth on FS itself; relies on Docker network isolation).
+The integration is `@scope/<saas>` with `source.kind: local` (its runner shells out to the FS container) or a `custom` auth whose `connect.tool` drives FS. Its `auths.{key}.authorized_uris` MUST include `http://host.docker.internal:8191/**` so the sidecar will let your tool send POSTs there. The FS endpoint itself needs no auth (it relies on Docker network isolation), so route the credential-bearing FS call through **`@scope/<saas>`'s** `{ns}__api_call` (not a separate FS integration) — that is what makes `substituteBody` resolve the SaaS credentials, see §4.
 
-The tool TS goes through `@scope/<saas>` (not `@default/flaresolverr`) when it needs `substituteBody` for credentials — see §4.
+<!-- TODO vérifier si un wrapper utilitaire séparé (ex `@default/flaresolverr-fetch`) existe encore comme integration distincte sur feat/integrations, ou s'il faut tout router via `@scope/<saas>` -->
 
 ---
 
@@ -92,51 +94,70 @@ Health-check: `curl http://localhost:8191/` returns `{"msg":"FlareSolverr is rea
 
 If you need the local patches in §6 (most non-trivial SaaS will), build from a fork instead of using the upstream image — see §6.4.
 
-### 3.2 `@default/flaresolverr` provider
+### 3.2 The SaaS integration — allow the FS endpoint
 
-Minimal manifest (no credentials, just allowed-URI guard):
+The FS endpoint carries no auth of its own; you do not author a separate FS integration. Instead the SaaS integration (`source.kind: local`, or `custom` auth with a `connect.tool`) allows the FS host under its `authorized_uris`, so the sidecar lets your tool POST to FS while substituting the SaaS credentials. Minimal `auths` shape:
 
 ```json
 {
-  "name": "@default/flaresolverr",
+  "name": "@scope/<saas>",
   "version": "1.0.0",
-  "type": "provider",
-  "schemaVersion": "1.1",
-  "displayName": "FlareSolverr",
-  "definition": {
-    "authMode": "custom",
-    "credentials": { "schema": { "type": "object", "properties": {} } },
-    "authorizedUris": ["http://host.docker.internal:8191/**"]
-  }
+  "type": "integration",
+  "schema_version": "0.1",
+  "display_name": "<SaaS> (via FlareSolverr)",
+  "source": { "kind": "local", "server": { "name": "@scope/<saas>-mcp", "version": "^1.0.0" } },
+  "auths": {
+    "primary": {
+      "type": "custom",
+      "authorized_uris": [
+        "https://login.<saas>.com/**",
+        "https://api.<saas>.com/**",
+        "http://host.docker.internal:8191/**"
+      ],
+      "credentials": { "schema": { "type": "object", "properties": {
+        "email": { "type": "string" }, "password": { "type": "string" }
+      }, "required": ["email", "password"] } }
+    }
+  },
+  "_meta": { "dev.appstrate/api": { "auths": { "primary": {} } } }
 }
 ```
 
-Connect with empty credentials via `POST /api/connections/connect/@default/flaresolverr/credentials -d '{}'`.
+Connect the SaaS credentials with the Fields strategy:
+
+```bash
+appstrate api POST '/api/integrations/@scope%2F<saas>/auths/primary/connect/fields' \
+  -d '{"credentials": {"email": "...", "password": "..."}}'
+```
+
+<!-- TODO vérifier le format exact de connect/fields pour une auth custom qui ne fait que stocker des credentials (vs connect.tool) -->
 
 ### 3.3 Generic fetch wrapper tool
 
-`@default/flaresolverr-fetch` — generic GET/POST through FS, takes `{url, method?, post_data?, cookies?, session?, max_timeout_ms?}`, returns flat `{success, status, url, body, cookies, user_agent}`. Useful as a building block when the SaaS tool doesn't need credentials in the body (post-bootstrap API calls reusing a session). Source pattern in §5.
+A generic GET/POST-through-FS tool — takes `{url, method?, post_data?, cookies?, session?, max_timeout_ms?}`, returns flat `{success, status, url, body, cookies, user_agent}` — is useful as a building block when the SaaS tool doesn't need credentials in the body (post-bootstrap API calls reusing a session). Ship it inside the integration's `mcp-server` package (for `source.kind: local`) rather than as a standalone tool package, since `dependencies.tools` no longer exists. Source pattern in §5.
 
 ---
 
 ## 4. The `credentials-substitution-cross-target` pattern
 
-**The problem**: your tool needs to send credentials (`{{email}}`/`{{password}}`) to the SaaS but the request has to be routed through FS (so a real Chromium does the navigation). If you call FS via `@default/flaresolverr` and use `substituteBody:true`, the sidecar looks for credentials in **`@default/flaresolverr`** — which has none. The substitution silently no-ops.
+**The problem**: your tool needs to send credentials (`{{email}}`/`{{password}}`) to the SaaS but the request has to be routed through FS (so a real Chromium does the navigation). If you route the FS call through a credential-less integration and use `substituteBody:true`, the sidecar finds no credentials to substitute and the placeholders silently no-op.
 
-**The fix**: extend the SaaS provider's `authorizedUris` to include the FS endpoint, and route the FS call through the **SaaS provider** (not the FS provider). The sidecar will:
-1. See the target `http://host.docker.internal:8191/v1` is allowed under `@scope/<saas>`'s `authorizedUris`. ✓
+**The fix**: list the FS endpoint in the SaaS integration's `auths.{key}.authorized_uris`, and route the FS call through the **SaaS integration's `{ns}__api_call`**. The sidecar will:
+1. See the target `http://host.docker.internal:8191/v1` is allowed under `@scope/<saas>`'s `authorized_uris`. ✓
 2. Read the credentials of `@scope/<saas>`. ✓
-3. Substitute `{{email}}`/`{{password}}` in the JSON body you're sending to FS (which itself contains a `postData` field). ✓
+3. Substitute `{{email}}`/`{{password}}` (via the `api_call` arg `substituteBody:true`) in the JSON body you're sending to FS (which itself contains a `postData` field). ✓
 4. POST the substituted body to FS. ✓
 5. FS forwards `postData` to the real SaaS upstream.
+
+> The `substituteBody:true` + `{{field}}` substitution here is the **`api_call` argument** layer (sidecar-side body string-replace), distinct from the manifest's `{$credential.<field>}` `delivery` syntax. Both coexist; this pattern uses the former because the secret has to land inside a nested `postData` JSON string, not in a delivery header.
 
 Where it matters: the placeholder is **inside a JSON string field** (`postData`), not at the top level of the body. The sidecar's substitution is a string-replace, not a JSON-walk, so it handles this naturally.
 
 ### 4.1 Example
 
 ```ts
-// inside a login tool TS
-const result = await ctx.providerCall("@scope/<saas>", {
+// inside a login tool TS — @scope/<saas>'s {ns}__api_call, via the runtime ctx wrapper
+const result = await ctx.apiCall({ // <!-- TODO vérifier le nom exact du wrapper ctx sur feat/integrations -->
   method: "POST",
   target: "http://host.docker.internal:8191/v1",
   headers: { "Content-Type": "application/json" },
@@ -153,7 +174,7 @@ const result = await ctx.providerCall("@scope/<saas>", {
 Manifest side:
 
 ```json
-"authorizedUris": [
+"authorized_uris": [
   "https://login.<saas>.com/**",
   "https://api.<saas>.com/**",
   "http://host.docker.internal:8191/**"   // ← critical for this pattern
@@ -162,24 +183,24 @@ Manifest side:
 
 ### 4.2 Why this preserves ADR-003
 
-The LLM only sees the literal `"{{email}}"` / `"{{password}}"` strings in the tool source. The tool TS doesn't `await ctx.readCredentials(...)` — it just emits placeholders. The sidecar substitutes them server-side, on its way to FS. The tool runtime, the LLM, and the user-facing logs never observe the values. FS receives the resolved values in `postData`, but FS is trusted local infra (Docker network, no external auth).
+The LLM only sees the literal `"{{email}}"` / `"{{password}}"` strings in the tool source. The tool TS never reads the credentials directly — it just emits placeholders and sets `substituteBody:true`. The sidecar substitutes them server-side, on its way to FS. The tool runtime, the LLM, and the user-facing logs never observe the values. FS receives the resolved values in `postData`, but FS is trusted local infra (Docker network, no external auth).
 
 ### 4.3 Form-urlencoded special characters
 
 The sidecar substitution is a verbatim string-replace — it does not URL-encode. If a credential contains `&`, `=`, `+`, or `%`, the resulting `postData` will be malformed.
 
-**Workaround**: store a pre-encoded variant in credentials (`email_encoded`, `password_encoded`) and reference those placeholders instead. Document this in `PROVIDER.md`.
+**Workaround**: store a pre-encoded variant in credentials (`email_encoded`, `password_encoded`) and reference those placeholders instead. Document this in `INTEGRATION.md`.
 
 ---
 
 ## 5. The `login → sessionId → fetch` pattern
 
-After login, the authenticated session lives **inside FS** (Chromium cookie jar), not in the sidecar. If you call `provider_call` on a post-login API endpoint, it goes via Bun fetch — which never saw the login cookies — and you get `401`/`session_invalid`.
+After login, the authenticated session lives **inside FS** (Chromium cookie jar), not in the sidecar. If you call `{ns}__api_call` on a post-login API endpoint directly, it goes via Bun fetch — which never saw the login cookies — and you get `401`/`session_invalid`.
 
 The fix is to keep the FS session alive across tool calls and route every subsequent SaaS API call through FS too. Two pieces of mechanics:
 
 1. **The login tool doesn't destroy the FS session on success** — it returns `sessionId` in its output and skips `sessions.destroy`. FS auto-expires after ~10 min idle, which is enough for one agent run.
-2. **A companion `*-inbox-fetch` / `*-list` tool** takes `sessionId` as input and uses it to fetch authenticated API endpoints via `@default/flaresolverr-fetch` (or a custom call routed through the SaaS provider when you need credentials substitution again).
+2. **A companion `*-inbox-fetch` / `*-list` tool** takes `sessionId` as input and uses it to fetch authenticated API endpoints, routing the FS call through the SaaS integration's `{ns}__api_call` (so credential substitution stays available when needed).
 
 ### 5.1 Login tool ending — keep session alive
 
@@ -207,7 +228,7 @@ try {
 const Params = Type.Object({ sessionId: Type.String({ minLength: 1 }) });
 
 async execute(_id, params, _signal, ctx) {
-  const r = await ctx.providerCall("@scope/<saas>", {
+  const r = await ctx.apiCall({ // @scope/<saas>'s {ns}__api_call — see TODO above on the wrapper name
     method: "POST",
     target: "http://host.docker.internal:8191/v1",
     headers: { "Content-Type": "application/json" },
@@ -234,7 +255,7 @@ That's it. The LLM doesn't see the FS endpoint, doesn't construct any HTTP — i
 
 ### 5.4 When NOT to keep the session
 
-If the post-login work is trivial (one read, no further auth needed downstream) and the SaaS exposes a token-based auth on top of the cookie session (refresh token, JWT), prefer **Pattern A (ROPC)** in `auth-decision-tree.md`: extract the token from the cookie jar via `evalScript` (§6.3), store it in the provider's credentials, then call subsequent endpoints from the sidecar with a Bearer header. Skips FS for the API surface entirely.
+If the post-login work is trivial (one read, no further auth needed downstream) and the SaaS exposes a token-based auth on top of the cookie session (refresh token, JWT), prefer **Pattern A (ROPC)** in `auth-decision-tree.md`: extract the token from the cookie jar via `evalScript` (§6.3), expose it as a `connect.outputs` (referenced from `delivery.http.value` as `{$outputs.access_token}`), then call subsequent endpoints from the sidecar with a Bearer header. Skips FS for the API surface entirely. <!-- TODO vérifier si la persistance token via connect.outputs remplace l'ancien PATCH `@default/appstrate-self` sur feat/integrations -->
 
 ---
 
@@ -352,7 +373,7 @@ const evalScript = [
   "return JSON.stringify({ status: r.status, body: await r.text() });",
 ].join("\n");
 
-const r = await ctx.providerCall("@scope/<saas>", {
+const r = await ctx.apiCall({ // @scope/<saas>'s {ns}__api_call — see TODO above on the wrapper name
   method: "POST",
   target: "http://host.docker.internal:8191/v1",
   headers: { "Content-Type": "application/json" },
@@ -385,7 +406,7 @@ Before adding FS to your stack, weigh these against staying in the sidecar:
 - **Non-upstream patches**: the three fixes above are local. Anyone running your tools must build the same patched image. Document the exact image tag (e.g., `flaresolverr-patched:1.2`) and patch list. Pierre's stance (Appstrate issue [#458](https://github.com/appstrate/appstrate/issues/458)) is that bot-tier bypass should live in a tenant-side proxy — not in the sidecar. FS is consistent with that view (it's tenant-side), but the platform won't ship the patches for you.
 - **Infra cost**: ~500 MB RAM per active session, 5-30s per navigation (real Chromium). Two concurrent agents → 1 GB. Plan accordingly on small VMs.
 - **Multi-tenancy is harder**: FS sessions aren't tenant-scoped. Two tenants sharing one FS container can race on `sessions.create`/`destroy` if their tools use overlapping session IDs. For multi-tenant deployments, run one FS container per tenant (or per agent run) — costs more, but avoids the cross-tenant cookie leak.
-- **Not Appstrate Cloud-compatible**: the pattern assumes `host.docker.internal:8191` is reachable from the sidecar. Cloud sidecars don't have your FS container. If you're targeting cloud, document the limitation in `PROVIDER.md` and either fall back to a degraded mode or refuse to run.
+- **Not Appstrate Cloud-compatible**: the pattern assumes `host.docker.internal:8191` is reachable from the sidecar. Cloud sidecars don't have your FS container. If you're targeting cloud, document the limitation in `INTEGRATION.md` and either fall back to a degraded mode or refuse to run.
 - **Maintenance**: each upstream change a vendor ships (login flow, fingerprint scripts, redirect chains) may require re-reverse-engineering. Capture the curl-equivalent of a real browser login in Chrome DevTools every time you touch the tool — it's the only source of truth for what "valid" looks like.
 
 If those trade-offs don't fit your context, stay in the sidecar and use the patterns in `auth-decision-tree.md` instead.

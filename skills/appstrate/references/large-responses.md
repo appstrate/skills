@@ -1,12 +1,14 @@
-# Large responses from `ctx.providerCall` — resolving `resource_link` blocks (≥32 KB)
+# Large responses from `{ns}__api_call` — resolving `resource_link` blocks (≥32 KB)
 
-When you write a custom tool (TypeScript, `dependencies.tools` in your agent bundle) that calls an external API through `ctx.providerCall(...)`, **upstream responses larger than 32 KB do not arrive inline**. The sidecar spills the body into a run-scoped `BlobStore` and returns an MCP `resource_link` block instead. If your tool doesn't know about this, `result.content[0].text` comes back empty and the body looks "missing" — the most common silent failure mode for tools that consume non-trivial API responses.
+When an agent (or a custom `mcp-server` tool) calls an external API through an integration's `{ns}__api_call` MCP tool, **upstream responses larger than 32 KB do not arrive inline**. The sidecar spills the body into a run-scoped `BlobStore` and returns an MCP `resource_link` block instead of inline `text`. If the caller doesn't handle this, `content[0].text` comes back empty and the body looks "missing" — the most common silent failure mode for non-trivial API responses.
 
-This document covers the recommended pattern (`ctx.readResource`, runtime-pi >= 1.0.0-beta.7) and the manual fallback for older runtimes, plus five gotchas that cost ~2h of debug each if missed.
+> **Who calls what.** Credentialed outbound calls go through the LLM-facing `{ns}__api_call` MCP tool (the integration + auth are implied by the tool name — there is no `providerId` argument, and no `ctx.apiCall`/`ctx.providerCall` method). The **only** capability on the custom-tool context (`AppstrateToolCtx`, the 4th arg of a tool's `execute`) is **`readResource(uri)`**, which resolves a `resource_link` URI. So: the call is made via the MCP tool; the spill is resolved via `ctx.readResource`.
+
+This document covers the recommended pattern (`ctx.readResource`, runtime-pi >= 1.0.0-beta.7) and the manual fallback for older runtimes, plus the gotchas that cost ~2h of debug each if missed.
 
 ---
 
-## How `ctx.providerCall` returns bodies
+## How `{ns}__api_call` returns bodies
 
 The MCP `CallToolResult` shape depends on the upstream response size and the `INLINE_RESPONSE_THRESHOLD` constant (32 KB, hardcoded in `runtime-pi/sidecar/mcp.ts`):
 
@@ -22,37 +24,36 @@ The MCP `CallToolResult` shape depends on the upstream response size and the `IN
     {
       "type": "resource_link",
       "name": "...",
-      "uri": "appstrate://provider-response/{runId}/{ulid}",
+      "uri": "appstrate://api-response/{runId}/{ulid}",
       "mimeType": "..."
     }
   ]
 }
 ```
 
-For an LLM-driven agent, the model can call MCP `resources/read({ uri })` itself. For a **tool TS intermediary** that wants to parse the body and write it to disk (without polluting the agent's context with a 100 KB blob), you need to resolve the URI yourself.
+For an LLM-driven agent, the model resolves the spill automatically — the runner also writes spilled blobs to the workspace under `resources/…` so the agent can read them as files. For a **custom `mcp-server` tool** that consumes the result of an `{ns}__api_call` and wants to parse the body itself (without pushing a 100 KB blob through the agent's context), resolve the `resource_link` URI via `ctx.readResource`.
 
 ---
 
 ## Recommended pattern — `ctx.readResource(uri)` (runtime-pi >= 1.0.0-beta.7)
 
-The runtime exposes `readResource` as a thin wrapper over `mcp.readResource()` of the runner's MCP client. No new transport, no new auth, no port to discover.
+The runtime exposes `readResource` as a thin wrapper over `mcp.readResource()` of the runner's MCP client. No new transport, no new auth, no port to discover. Given a `CallToolResult` from an `{ns}__api_call` (the call itself is the MCP tool — `ctx` does not make it), normalise inline-vs-spill like this:
 
 ```ts
 // 4th arg of execute is the AppstrateToolCtx from @appstrate/runner-pi
 import type { AppstrateToolCtx } from "@appstrate/runner-pi";
 
-async function providerGet(
+// `result` is the CallToolResult returned by the {ns}__api_call MCP tool.
+async function readApiCallBody(
   ctx: AppstrateToolCtx,
-  provider: string,
-  target: string,
+  result: { content?: Array<{ text?: string; uri?: string }> },
 ): Promise<string> {
-  const result = await ctx.providerCall(provider, { method: "GET", target });
   const block = result?.content?.[0];
 
   // < 32 KB → inline text
   if (typeof block?.text === "string" && block.text.length > 0) return block.text;
 
-  // ≥ 32 KB → resource_link spillover
+  // ≥ 32 KB → resource_link spillover (appstrate://api-response/{runId}/{ulid})
   if (typeof block?.uri === "string" && block.uri.length > 0) {
     const resolved = await ctx.readResource(block.uri);
     const c = resolved?.contents?.[0];
@@ -77,17 +78,17 @@ For **binary** payloads (PDFs, images, archives, audio, video), `ctx.readResourc
 
 The sidecar exposes `responseMode: { toFile: "<path>" }` which **streams the upstream body directly to a file** in the sandbox's shared filesystem. No base64, no envelope, no practical size limit (bounded only by container disk, typically several GB).
 
-```ts
-const result = await ctx.providerCall("@appstrate/google-drive", {
-  method: "GET",
-  target: `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-  responseMode: { toFile: "/tmp/download.pdf" },
-});
+`responseMode` is an argument of the `{ns}__api_call` MCP tool. When the agent invokes (e.g. `@appstrate/google-drive`'s) `{ns}__api_call` with:
 
-// result.content[0].text is a JSON summary (status, size, path).
-// The bytes are on disk at /tmp/download.pdf — read with fs/promises.
-const stats = await stat("/tmp/download.pdf");
+```json
+{
+  "method": "GET",
+  "target": "https://www.googleapis.com/drive/v3/files/<fileId>?alt=media",
+  "responseMode": { "toFile": "downloads/file.pdf" }
+}
 ```
+
+the result's `content[0].text` is a JSON summary (status, size, path) and the bytes land on disk at `downloads/file.pdf` in the shared workspace — read them with `fs/promises` from a tool, or hand the path to another tool (e.g. a PDF reader).
 
 **When to use `toFile` vs `readResource`:**
 - **`toFile`** — you need a file on disk (PDF to pass to `pdf-toolkit`, image to analyze, archive to unzip). Always prefer for binaries.
@@ -139,10 +140,10 @@ Defensive guardrail at tool startup — fail loud if neither path is available:
 
 ```ts
 async execute(_id, params, _signal, ctx) {
-  if (!ctx?.providerCall) {
-    return { content: [{ type: "text", text: "Missing ctx.providerCall — runtime-pi too old" }], isError: true };
+  if (!ctx?.readResource) {
+    // runtime-pi too old — fall back to readBlobViaMcp() above.
+    return { content: [{ type: "text", text: "Missing ctx.readResource — using MCP fallback" }] };
   }
-  // Optionally: detect ctx.readResource presence and select path accordingly.
   ...
 }
 ```
@@ -164,11 +165,11 @@ This only impacts the fallback path — `ctx.readResource` hides this detail.
 
 ### 2. `runId` may be literal `"unknown"` in the URI
 
-On Tier 0 / Bun standalone, the URI may be `appstrate://provider-response/unknown/<ulid>` instead of `appstrate://provider-response/{runId}/<ulid>`. The sidecar's `resources/read` accepts the literal value as it was stored — pass the URI you received in the `resource_link` verbatim, do NOT try to "fix" the runId.
+On Tier 0 / Bun standalone, the URI may be `appstrate://api-response/unknown/<ulid>` instead of `appstrate://api-response/{runId}/<ulid>`. The sidecar's `resources/read` accepts the literal value as it was stored — pass the URI you received in the `resource_link` verbatim, do NOT try to "fix" the runId.
 
 ### 3. No `inlineThreshold` option exposed to the caller
 
-The 32 KB threshold is a server-side constant. `ctx.providerCall` ignores any custom option you pass (`inline: true`, `bufferAll: true`, `maxInlineSize: 1000000`, `responseMode: "inline"`, etc. — all tested empirically, no effect). Don't waste time trying to disable spillover via options.
+The 32 KB threshold is a server-side constant. `{ns}__api_call` ignores any custom option you pass (`inline: true`, `bufferAll: true`, `maxInlineSize: 1000000`, `responseMode: "inline"`, etc. — all tested empirically, no effect). Don't waste time trying to disable spillover via options.
 
 ### 4. The bug also hits "writer" tools, not just "fetcher" tools
 
@@ -180,6 +181,6 @@ Any tool that consumes an upstream response is affected — including writer too
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| Tool TS receives empty body / `result.content[0].text === ""` but `ctx.providerCall` does not throw | Upstream response ≥ 32 KB → spilled as `resource_link` (`appstrate://provider-response/...`). Tool ignores the URI branch. | Resolve via `ctx.readResource(block.uri)` (runtime-pi >= 1.0.0-beta.7). See snippet above. |
+| Tool TS receives empty body / `result.content[0].text === ""` but `{ns}__api_call` does not throw | Upstream response ≥ 32 KB → spilled as `resource_link` (`appstrate://api-response/...`). Tool ignores the URI branch. | Resolve via `ctx.readResource(block.uri)` (runtime-pi >= 1.0.0-beta.7). See snippet above. |
 | Writer tool (push GitHub, upsert Notion, etc.) doing a GET pre-check loops on 422/409 even though the resource exists | The pre-check GET spills as `resource_link` when the existing resource > 32 KB → `sha` / etag never extracted → retry without the right header → 422 | Same fix: apply `ctx.readResource` on the pre-check GET. |
-| `result.content[0].text === ""` or empty body from `ctx.providerCall` on a binary download > 500 KB | Binary content exceeds the inline cap and the base64 envelope path saturates / the tool fails to decode `c.blob` past a few MB | Use `responseMode: { toFile: "<path>" }`. Sidecar streams directly to disk; read the file with `fs.stat` / `fs.readFile` afterwards. |
+| `result.content[0].text === ""` or empty body from `{ns}__api_call` on a binary download > 500 KB | Binary content exceeds the inline cap and the base64 envelope path saturates / the tool fails to decode `c.blob` past a few MB | Use `responseMode: { toFile: "<path>" }`. Sidecar streams directly to disk; read the file with `fs.stat` / `fs.readFile` afterwards. |

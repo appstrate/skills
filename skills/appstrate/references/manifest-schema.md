@@ -1,10 +1,10 @@
 # AFPS Manifest Schema Reference (skill quick-ref)
 
-> **Canonical spec**: AFPS (Agent Flow Packaging Standard) v1.0 is the open CC-BY format Appstrate uses. The authoritative schema + spec lives at [afps.appstrate.dev](https://afps.appstrate.dev). JSON Schema for validation: `https://afps.appstrate.dev/schema/v1/{type}.schema.json`. Appstrate-side overview: [appstrate.com/docs/resources/afps-specification](https://appstrate.com/docs/resources/afps-specification).
+> **Canonical spec**: AFPS (Agent Flow Packaging Standard) is the open format Appstrate uses. This platform targets the **0.x line** (`@afps-spec/schema@^0.4.0`). JSON Schema per type: `https://schemas.afps.dev/v0/{type}.schema.json` (`agent` / `skill` / `mcp-server` / `integration`). When in doubt, the published schema wins.
 >
-> This file is the **skill-local quick-ref** for writing manifests in-context without having to fetch the full JSON Schema. When in doubt, the afps.appstrate.dev schema wins.
+> This file is the **skill-local quick-ref**. The full integration model (auths, delivery, connect, scopes) lives in `create-integration.md`; the MCP-server model in `create-mcp-server.md`.
 
-Every package has a `manifest.json`.
+Every package has a `manifest.json`. **All manifest fields are snake_case** (`display_name`, `schema_version`, `mcp_servers`, `integrations_configuration`, `file_constraints`, `property_order`). The reader is snake_case-only — the 1.x camelCase fallback was removed.
 
 ## Table of Contents
 
@@ -13,85 +13,90 @@ Every package has a `manifest.json`.
 - [Agent Fields](#agent-fields)
 - [Input/Output/Config Schemas](#inputoutputconfig-schemas)
   - [File / upload fields](#file--upload-fields-pdf-image-attachments)
-- [State and Memories](#state-and-memories)
+  - [Output schema nesting](#output-schema--resultoutputx-nesting)
+- [State and Memory](#state-and-memory)
 - [Skill Fields](#skill-fields)
-- [Tool Fields](#tool-fields)
-- [Provider Fields](#provider-fields)
+- [MCP-server Fields](#mcp-server-fields)
+- [Integration Fields](#integration-fields)
 - [Validation Rules](#validation-rules)
 
 ## Common Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `$schema` | string | No | Schema URL for editor validation |
+| `$schema` | string | No | `https://schemas.afps.dev/v0/<type>.schema.json` |
 | `name` | string | **Yes** | Scoped name: `@scope/name` |
 | `version` | string | **Yes** | Semver: `MAJOR.MINOR.PATCH[-prerelease]` |
-| `type` | enum | **Yes** | `agent`, `skill`, `tool`, `provider` |
-| `displayName` | string | Agents: yes | Human-readable name |
+| `type` | enum | **Yes** | `agent`, `skill`, `mcp-server`, `integration` |
+| `schema_version` | string | **Yes** | `"MAJOR.MINOR"`, MAJOR = 0 (e.g. `"0.1"`). A MAJOR > 0 is rejected |
+| `display_name` | string | Agents: yes | Human-readable name |
 | `description` | string | No | Short description |
-| `keywords` | string[] | No | Tags for marketplace |
+| `keywords` | string[] | No | Tags |
 | `license` | string | No | SPDX identifier |
 
-Name regex: `^@[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
+Name regex: `^@[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?$`. In API paths, scope includes `@`: `/api/agents/@my-org/my-agent`.
 
-In API paths, scope includes `@`: `@my-org/my-agent` → `/api/agents/@my-org/my-agent`
+The legacy types `tool` and `provider` are gone (`tool` → `mcp-server`, `provider` → `integration`, AFPS Appendix D). `x-outputRetries` and `flow.schema.json` no longer exist.
 
 ## Dependencies
 
 ```json
 {
   "dependencies": {
-    "providers": { "@appstrate/gmail": "^1.0.0" },
-    "skills": { "@appstrate/email-writing": "^1.0.0" },
-    "tools": { "@appstrate/web-scraper": "^1.0.0" }
+    "skills":       { "@appstrate/email-writing": "^1.0.0" },
+    "mcp_servers":  { "@scope/some-mcp": "^1.0.0" },
+    "integrations": { "@appstrate/gmail": "^1.0.0" }
   }
 }
 ```
 
-All three sub-fields optional. Values are semver ranges: `^1.0.0`, `~1.0.0`, `>=1.0.0 <2.0.0`, `*`.
+Flat maps `{ "@scope/name": "semverRange" }` (`^1.0.0`, `~1.0.0`, `*`, …). All optional. **The legacy keys `dependencies.tools` and `dependencies.providers` are rejected at publish** (`LegacyDepKeyError` → use `mcp_servers` / `integrations`).
 
 ## Agent Fields
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `schemaVersion` | string | **Yes** | — | `"1.0"` (pattern: `^1\.(0\|[1-9]\d*)$`) |
-| `author` | string | **Yes** | — | Author name |
-| `timeout` | number | No | — | Max execution time (seconds) |
-| `x-outputRetries` | integer | No | 0 | Retry on output validation failure (0-5) |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `author` | string\|object | **Yes** | Name, or `{name,email?,url?}` |
+| `runtime_tools` | string[] | No | Subset of `["output","log","note","pin","report"]`. See `runtime-tools.md` |
+| `integrations_configuration` | object | No | Per-integration tool/scope/auth selection (below) |
+| `timeout` | number | No | Max execution time (seconds) |
 
-### Providers Configuration
+### `integrations_configuration`
 
 ```json
 {
-  "providersConfiguration": {
+  "integrations_configuration": {
     "@appstrate/gmail": {
+      "tools": ["list_messages", "send_message"],
       "scopes": ["https://www.googleapis.com/auth/gmail.modify"],
-      "connectionMode": "user"
+      "auth_key": "oauth"
     }
   }
 }
 ```
 
-- `scopes`: OAuth scopes needed
-- `connectionMode`: `"user"` (per-user) or `"admin"` (shared org creds)
+- `tools`: `string[]` (allowlist of the integration's tools the agent may call) or `"*"` (all — only if the integration sets `allow_undeclared_tools: true`). Absent ≡ `[]` ≡ zero tools (least privilege).
+- `scopes`: optional explicit OAuth scopes (escape hatch); normally inferred from `tools`.
+- `auth_key`: disambiguates a multi-auth integration.
+- Each key MUST match a `dependencies.integrations` entry (orphan keys are rejected).
+
+> **No `providers_configuration` anymore.** Tool/scope selection drives OAuth scope inference at consent time.
 
 ## Input/Output/Config Schemas
 
-All use JSON Schema with these types:
+The wrapper is `{ schema, file_constraints?, ui_hints?, property_order? }` (snake_case). `schema` is pure JSON Schema 2020-12.
 
 | Type | Notes |
 |------|-------|
-| `"string"` | Supports `enum`, `default`, `minLength`, `maxLength`, `pattern`, `format`, `contentMediaType` |
-| `"number"` | Supports `minimum`, `maximum`. AJV coerces `"50"` -> `50` |
-| `"boolean"` | Supports `default` |
-| `"array"` | Requires `items` |
-| `"object"` | Nested `properties` + `required` |
+| `"string"` | `enum`, `default`, `minLength`, `maxLength`, `pattern`, `format`, `contentMediaType` |
+| `"number"` | `minimum`, `maximum`. AJV coerces `"50"` → `50` |
+| `"boolean"` | `default` |
+| `"array"` | requires `items` |
+| `"object"` | nested `properties` + `required` |
 
-> **There is no `"file"` type.** A common mistake is to write `"type": "file"` — this is not a valid JSON Schema 2020-12 type and the AFPS validator rejects the manifest with `Manifest validation failed: input.schema: Must be a valid JSON Schema 2020-12 document`. Use the file fields recipe below instead.
+> **No `"file"` type.** Writing `"type": "file"` fails validation. Use the file-fields recipe below.
 
-Display: `title` (label), `description` (help text), `default`, `propertyOrder` (field order).
-
-**Critical**: `required` is a top-level array, NOT per-property boolean.
+Display lives in the wrapper, not the schema: `property_order: string[]`, `ui_hints.<key>.placeholder`. **`required` is a top-level array**, NOT per-property boolean.
 
 ```json
 {
@@ -102,16 +107,17 @@ Display: `title` (label), `description` (help text), `default`, `propertyOrder` 
         "query": { "type": "string", "title": "Search Query" },
         "limit": { "type": "number", "default": 10 }
       },
-      "required": ["query"],
-      "propertyOrder": ["query", "limit"]
-    }
+      "required": ["query"]
+    },
+    "ui_hints": { "query": { "placeholder": "e.g. weekly report" } },
+    "property_order": ["query", "limit"]
   }
 }
 ```
 
 ### File / upload fields (PDF, image, attachments)
 
-To accept a user-uploaded file in `input`, declare a **string** property with **three keys together** — `format: "uri"`, `contentMediaType: "<mime>"`, and a sibling `fileConstraints` block (placed next to `schema`, NOT inside it):
+Declare a **string** property with three keys together — `format: "uri"`, `contentMediaType: "<mime>"`, and a sibling `file_constraints` block (next to `schema`, snake_case):
 
 ```json
 {
@@ -123,236 +129,145 @@ To accept a user-uploaded file in `input`, declare a **string** property with **
           "type": "string",
           "format": "uri",
           "contentMediaType": "application/pdf",
-          "title": "Document à extraire",
+          "title": "Document",
           "description": "PDF or image. Uploaded via upload://, delivered to ./documents/<filename> in the sandbox."
         }
       },
       "required": ["document"]
     },
-    "fileConstraints": {
+    "file_constraints": {
       "document": {
-        "accept": "application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp",
-        "maxSize": 33554432
+        "accept": "application/pdf,image/jpeg,image/png,.pdf,.jpg,.png",
+        "max_size": 33554432
       }
     },
-    "propertyOrder": ["document"]
+    "property_order": ["document"]
   }
 }
 ```
 
-**Why all three keys are required** — the server-side `input-parser.collectUploadRefs` recognizes a property as a file field only if `format === "uri" && contentMediaType` is present. Without these two, the value `"upload://upl_xxx"` is treated as a plain string, `consumeUpload` is never called, and the sandbox starts with an empty `./documents/` (no `## Documents` section in the system prompt). The webapp file-picker widget uses the same detection — without these keys, it shows a plain text input instead of a file picker.
+**Why all three keys** — the upload-ref collector recognizes a file field only when `format === "uri" && contentMediaType` is present; otherwise `upload://…` is treated as a plain string and never consumed. The webapp file picker uses the same detection.
 
-**`fileConstraints`** — sibling of `schema`, keyed by property name. Three sub-keys:
-- `accept` — comma-separated list of MIMEs **and** extensions (e.g. `"application/pdf,.pdf"`). **Do NOT use `"*/*"`** — the webapp validator compares it literally and rejects all files. Always enumerate.
-- `maxSize` — bytes (max 100 MB).
-- `maxFiles` — optional, for arrays.
+**`file_constraints`** (sibling of `schema`, keyed by property):
+- `accept` — comma-separated MIMEs **and** extensions. **Never `"*/*"`** (compared literally → rejects all files).
+- `max_size` — bytes (max 100 MB).
+- `max_files` — optional, for arrays.
 
-**Multiple files** — use `type: "array", items: { type: "string", format: "uri", contentMediaType: "<mime>" }`. The platform applies the same detection on `items`.
-
-**How to test the wiring** — after import, open the agent in the webapp and click "Run". If the input field renders as a file picker, the manifest is correctly wired. If it renders as a plain text input, one of the three keys is missing.
+**Multiple files** — `type: "array", items: { type:"string", format:"uri", contentMediaType:"<mime>" }`.
 
 ### Output schema — `result.output.X` nesting (not `result.X`)
 
-The agent calls `@appstrate/output` with `output({ data: { summary: "...", stats: {...} } })`. The `data` payload is what `manifest.output.schema` describes. But when reading the run via `GET /api/runs/{id}`, the result is **wrapped under `result.output`**:
+The agent calls `output({ data: { summary: "...", stats: {...} } })`. `data` is what `output.schema` describes. But reading the run via `GET /api/runs/{id}`, the result is wrapped under `result.output`:
 
 ```json
-{
-  "result": {
-    "output": {
-      "summary": "...",
-      "stats": {...}
-    }
-  }
-}
+{ "result": { "output": { "summary": "...", "stats": {} } } }
 ```
 
-Read `result.output.<field>`, NOT `result.<field>`. The schema describes the shape of `data`, NOT the shape of `result`. This trips up most first-time agent debuggers — runs land as `success`, `output` was called correctly, but `result.summary` reads as `undefined` and the dev wastes hours chasing a non-bug.
+Read `result.output.<field>`, NOT `result.<field>`. Runs land `success`, `output` was called, yet `result.summary` is `undefined` — it's nesting, not a bug.
 
-## State and Memories
+## State and Memory
 
-**State**: Free-form JSON, overwritten each run. Agent returns `result.state`, injected as `## Previous State` next run.
+State/memory are not manifest config — they are written via runtime tools and rendered (data-only) into the prompt:
+- `pin({ key:"checkpoint", … })` → `## Checkpoint` (carry-over); other keys → `## Pinned Slots`.
+- `note({ content, scope? })` → archive, read back via the `recall_memory` MCP tool (NOT rendered in the prompt).
 
-**Memories**: Single list shared across all users of the agent (appended, never overwritten). Injected as `## Memory` in the prompt. Use the `add_memory` tool to save learnings. No manifest config needed.
+See `runtime-tools.md` + `state-and-checkpoint.md`.
 
 ## Skill Fields
 
-Minimal manifest. Content lives in `SKILL.md` (YAML frontmatter + Markdown).
+Minimal manifest; content lives in `SKILL.md` (YAML frontmatter + Markdown).
 
 ```json
 {
   "name": "@my-org/my-skill",
   "version": "1.0.0",
   "type": "skill",
-  "displayName": "My Skill",
+  "schema_version": "0.1",
+  "display_name": "My Skill",
   "description": "What this skill provides"
 }
 ```
 
-Skills can bundle `scripts/`, `references/`, `assets/` directories. The entire .afps content is extracted into `.pi/skills/{id}/` in the container.
+Skills bundle `scripts/`, `references/`, `assets/`; extracted into `.pi/skills/{id}/` in the container.
 
-## Tool Fields
+## MCP-server Fields
+
+A `mcp-server` packages a Model Context Protocol server (MCPB vocabulary). It is referenced by a `local` integration's `source.server`. Full guide: `create-mcp-server.md`.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `entrypoint` | string | **Yes** | Path to TypeScript entry (e.g., `"index.ts"`) |
-| `tool.name` | string | **Yes** | Tool identifier (snake_case) |
-| `tool.description` | string | **Yes** | Description for agent tool selection |
-| `tool.inputSchema` | object | **Yes** | JSON Schema for parameters |
+| `server.type` | enum | **Yes** | `node` \| `python` \| `binary` \| `uv` (no `bun`; use the `_meta` runtime override) |
+| `server.entry_point` | string | **Yes** | Entry file (e.g. `server/index.ts`) |
+| `server.mcp_config` | object | **Yes** | `{ command, args, env?, platform_overrides? }` |
+| `tools[]` | array | No | `{ name, description }` advertised to the agent |
+| `user_config` | object | No | MCPB user-config entries |
 
 ```json
 {
-  "name": "@my-org/my-tool",
+  "name": "@my-org/my-mcp",
   "version": "1.0.0",
-  "type": "tool",
-  "entrypoint": "index.ts",
-  "tool": {
-    "name": "my_tool",
-    "description": "Does something useful",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "query": { "type": "string", "description": "Search query" }
-      },
-      "required": ["query"]
+  "type": "mcp-server",
+  "schema_version": "0.1",
+  "manifest_version": "0.3",
+  "server": { "type": "node", "entry_point": "server/index.ts", "mcp_config": { "command": "bun", "args": ["server/index.ts"] } },
+  "tools": [{ "name": "my_tool", "description": "…" }],
+  "_meta": {
+    "dev.appstrate/mcp-server": { "runtime": "bun" },
+    "dev.appstrate/workspace": { "mount": "/workspace", "access": "rw" }
+  }
+}
+```
+
+- Bun-native servers keep `server.type: "node"` + `_meta["dev.appstrate/mcp-server"].runtime: "bun"`.
+- Opt into the per-run shared workspace with `_meta["dev.appstrate/workspace"].{mount, access:"ro"|"rw"}` (the sidecar acts as the MCP Roots provider). `mount` is an absolute POSIX path (no `..`, no `/`, no `/proc//sys//dev//etc`).
+
+## Integration Fields
+
+An `integration` reaches an external API. The shape depends on `source.kind`; auth lives under `auths.{key}`. Full guide (delivery, connect strategies, scopes, all 3 source kinds): `create-integration.md`. Quick-ref:
+
+```json
+{
+  "name": "@my-org/acme",
+  "version": "1.0.0",
+  "type": "integration",
+  "schema_version": "0.1",
+  "display_name": "Acme (API)",
+  "source": { "kind": "none" },
+  "auths": {
+    "primary": {
+      "type": "api_key",
+      "authorized_uris": ["https://api.acme.com/**"],
+      "credentials": { "schema": { "type": "object", "properties": { "api_key": { "type": "string" } }, "required": ["api_key"] } },
+      "delivery": { "http": { "in": "header", "name": "Authorization", "prefix": "Bearer ", "value": "{$credential.api_key}" } }
     }
-  }
+  },
+  "_meta": { "dev.appstrate/api": { "auths": { "primary": {} } } }
 }
 ```
 
-**Execute signature**: `(toolCallId, params, signal)` — params is the **second** argument.
-**Return type**: `{ content: [{ type: "text", text: "..." }] }` — NOT a plain string.
-**Import**: `import { tool } from "@mariozechner/pi-coding-agent"`
+- **`source.kind`**: `none` (REST via `api_call` only), `local` (`source.server` → a packaged `mcp-server`, one runner container per integration), `remote` (`source.remote.{url, transport}` MCP HTTP/SSE).
+- **`auths.{key}.type`**: `oauth2 | api_key | basic | mtls | custom` (`oauth1` removed; `mtls` added).
+- **`delivery.http`**: `{ in:"header", name, prefix?, value, encoding?, allow_server_override? }`. Only `in:"header"` is implemented. `value` uses the **`{$credential.<field>}`** runtime-expression syntax (NOT 1.x `{{field}}`). `encoding:"base64"` applies after expansion, before `prefix`. mtls must use `delivery.files`.
+- **Scopes (level 2)**: `auths.{key}.{scope_catalog, default_scopes, authorized_uris, allow_all_uris}` + root `tools_policy.{tool}.required_scopes.{auth_key}` (per-auth map). `authorized_uris` is the sole URL boundary (`url_patterns`/`scope_auth_key` removed). Scopes are inferred per-agent from selected tools.
+- **`api_call` capability**: opt in via `_meta["dev.appstrate/api"].auths.{key}` (additive, orthogonal to `source.kind`). One auth → `{ns}__api_call`; multiple → `{ns}__api_call__{authKey}`.
+- **`INTEGRATION.md`** (optional, AFPS §3.5) — API documentation inlined into the agent prompt as `### API Documentation` under `## Integration: <id>`. Bundle it next to `manifest.json` so the agent knows how to use the integration.
 
-## Provider Fields
+### Connecting a credential
 
-Root field is `definition` with `authMode`. Auth-specific fields are **nested under `definition.<authMode>`** (NOT flat under `definition`). Getting this wrong is the #1 bug when authoring custom providers by hand.
-
-### Always on `definition` (root)
-
-- `authMode`: `"oauth2" | "oauth1" | "api_key" | "basic" | "custom"` (required)
-- `authorizedUris`: `string[]` — URL patterns with `*` wildcards; the sidecar rejects outgoing requests that don't match
-- `allowAllUris`: `boolean` — bypass the URI whitelist (use with caution)
-- `availableScopes`: `[{ value, label }]` — scope catalog for the connection form
-- `credentialHeaderName`: `string` — e.g. `"Authorization"`
-- `credentialHeaderPrefix`: `string` — e.g. `"Bearer"` (space auto-handled)
-- `credentialTransform`: `{ template, encoding: "base64" }` — optional transform before injection
-
-Plus common metadata: `iconUrl`, `categories`, `docsUrl`, `setupGuide`.
-
-### Nested per `authMode`
-
-| `authMode` | Nested under | Required fields | Optional |
-|---|---|---|---|
-| `oauth2` | `definition.oauth2` | `authorizationUrl`, `tokenUrl` | `refreshUrl`, `defaultScopes`, `scopeSeparator`, `pkceEnabled`, `tokenAuthMethod`, `tokenContentType`, `authorizationParams`, `tokenParams` |
-| `oauth1` | `definition.oauth1` | `requestTokenUrl`, `authorizationUrl`, `accessTokenUrl` | `authorizationParams` |
-| `api_key` / `basic` / `custom` | `definition.credentials` | `schema` (JSON Schema for the credential form) | `fieldName` (which schema property holds the secret used in `{{variable}}` substitution) |
-
-> **`authMode: "password"` was proposed but rejected upstream** ([issue #457](https://github.com/appstrate/appstrate/issues/457)). For SaaS that exposes a clean ROPC `/token` endpoint, use `authMode: "custom"` + a tool TS that POSTs `grant_type=password&...&username={{email}}&password={{password}}` with `substituteBody: true`. Store the resulting `{access_token, refresh_token, expires_at}` in the credentials via `@default/appstrate-self` PATCH, and inject `Authorization: Bearer …` via `credentialHeaderName/Prefix`. See `auth-decision-tree.md` §B / §C for the recipe.
-
-### Canonical example (OAuth2, from real @appstrate/slack)
-
-```json
-{
-  "definition": {
-    "authMode": "oauth2",
-    "oauth2": {
-      "authorizationUrl": "https://slack.com/oauth/v2/authorize",
-      "tokenUrl": "https://slack.com/api/oauth.v2.access",
-      "defaultScopes": ["channels:read", "chat:write"],
-      "scopeSeparator": ",",
-      "pkceEnabled": false
-    },
-    "credentialHeaderName": "Authorization",
-    "credentialHeaderPrefix": "Bearer",
-    "authorizedUris": ["https://slack.com/api/*"],
-    "availableScopes": [{ "value": "chat:write", "label": "Send messages" }]
-  }
-}
-```
-
-### Canonical example (API key, from real @appstrate/firecrawl)
-
-```json
-{
-  "definition": {
-    "authMode": "api_key",
-    "credentials": {
-      "schema": {
-        "type": "object",
-        "properties": { "api_key": { "type": "string" } },
-        "required": ["api_key"]
-      },
-      "fieldName": "api_key"
-    },
-    "credentialHeaderName": "Authorization",
-    "credentialHeaderPrefix": "Bearer",
-    "authorizedUris": ["https://api.firecrawl.dev/*"]
-  }
-}
-```
-
-### Canonical example (`custom` + tool TS bootstrap — replaces the rejected `password` mode)
-
-For reverse-engineered SaaS with a ROPC `/token` endpoint but no public OAuth, write a tool TS that POSTs the bootstrap request through the sidecar with `substituteBody: true`. Store the resulting tokens via `@default/appstrate-self` PATCH, then call subsequent endpoints with the standard `Authorization: Bearer …` header. The recipe and a full worked example are in `auth-decision-tree.md` §C and §F.
-
-### TLS-fingerprint blocked upstreams (JA3 / Cloudflare bot tier)
-
-Some Cloudflare-protected SaaS silently reject Bun/undici TLS fingerprints with `403`/`502` while accepting the same payload from `curl` or a real browser. There is **no in-sidecar bypass** in upstream Appstrate main: a per-URL `curl`-client rerouting extension (`x-tlsClientByUrl`) was proposed but rejected — see [issue #458](https://github.com/appstrate/appstrate/issues/458). Pierre's stance is that JA3 bypass should live in tenant-side infrastructure (proxy or headless browser), not in the sidecar.
-
-Diagnose JA3 blocking by curl-vs-fetch differential: `curl -X POST <url> -d '<body>'` from your machine works → the sidecar gets `403`/`502`. Once identified, the two viable mitigations are:
-
-- **Residential proxy** for cookie-only bot tiers — see `auth-decision-tree.md` §4 step 2.
-- **Real headless browser via FlareSolverr** for full bot management (Cloudflare with JS challenge, DataDome, Akamai) — see `references/flaresolverr-pattern.md`.
-
-### Session cookies — automatic capture across redirect chains
-
-The sidecar keeps a per-provider, per-run cookie jar. Every `Set-Cookie` returned by upstream — at the **final** hop AND at every intermediate hop of a 3xx redirect chain — is merged into that jar (de-duplicated by name). On the next `provider_call` to the same provider in the same run, the jar is replayed as the `Cookie` header automatically.
-
-Practical implication: a TypeScript tool that bootstraps a session via a multi-step login flow (CAS + OAuth + OIDC handoff with 3–4 redirects, classic SAML/CAS deployments) only needs to invoke its login chain once at the start of the run. All subsequent `provider_call`s authenticate automatically — no need to capture the Set-Cookie response headers, no need to template them back as a `Cookie` header on follow-up requests. Streaming bodies fall back to last-hop-only capture (a buffered body is required to replay across 307/308).
-
-The jar is **run-scoped**: it resets when the sidecar is acquired for a new run. Long-lived session cookies are not persisted across runs by the sidecar — re-bootstrap on every run, or persist a refresh token in the provider's credentials via `@default/appstrate-self` PATCH (see `auth-decision-tree.md` §C "Multi-step CAS / OAuth handoff" for that pattern).
-
-**Pre-flight GET for sticky-session load balancers**: SaaS behind an AWS ALB (or any L7 LB with cookie-based stickiness — `AWSALB`, `JSESSIONID` set BEFORE the app sees the request) silently reject a POST login when the LB stickiness cookie isn't primed: the POST lands on a different LB instance from the one that will hold the resulting Spring/Tomcat session, and the next authenticated call gets the login form back even though the POST returned 200. Fix in the bootstrap tool: do a `GET` on the login URL FIRST so the sidecar's jar receives the LB cookies, THEN `POST` credentials. Symptom is silent — diagnose by comparing the cookie jar after step 1 (should contain `AWSALB` / `JSESSIONID` from the GET) to after step 2.
-
-### Reading the post-redirect terminal URL
-
-The sidecar exposes the final URL reached after following a redirect chain on `_meta["appstrate/upstream"].finalUrl` (sanitised per WHATWG Fetch — userinfo and fragment stripped). Useful for OAuth Authorization Code flows (`code=…&state=…` query params on the redirect target), CAS-style ticket extraction (`?ticket=ST-…`), or magic-link callbacks where the meaningful payload lives in the final URL rather than the response body. The field is per-hop SSRF-checked end-to-end, so its presence implies the entire redirect chain stayed within the provider's declared `allowedUris` trust boundary.
-
-### Provider package files
-
-An AFPS provider package MUST contain two files:
-
-| File | Required | Purpose |
-|------|----------|---------|
-| `manifest.json` | yes | Provider definition (auth mode, allowed URIs, scopes, …) |
-| `PROVIDER.md` | **yes** | API documentation (endpoints, params, response shapes, gotchas) — injected into the agent's system prompt at runtime so the LLM knows how to call the API |
-
-**`PROVIDER.md` is not optional.** Without it, the runtime errors at dispatch with `DraftPackageCatalog: <provider-id> has no files in storage` and the agent can't run. For style + structure, copy any built-in provider AFPS in [appstrate/appstrate/system-packages](https://github.com/appstrate/appstrate/tree/main/system-packages) (e.g. `provider-firecrawl-1.0.0.afps`) and `unzip -p <file> PROVIDER.md`.
-
-### Two creation paths — NOT equivalent
-
-- **`POST /api/packages/import`** with an AFPS ZIP (recommended) — `manifest.json` (nested shape above) + `PROVIDER.md`. Only this path stores the files the runtime needs. Use this for any provider you intend to actually call from an agent.
-- **`POST /api/providers`** (flat payload) — accepts `authorizationUrl`, `tokenUrl`, … at top level; the server nests them internally. Creates the DB row but **does NOT populate the file storage**, so the provider appears in the UI but agents that depend on it fail at dispatch (see "DraftPackageCatalog" in `references/known-issues.md`). Avoid for runtime use; only acceptable for definition-only experiments.
-
-### Saving a credential
-
-Once the provider package is imported, save the user credential via the connection endpoint. The body uses **camelCase `apiKey`**, not the snake_case `api_key` defined in the provider's `credentials.schema`:
+Connection is **agent-driven** under `/api/integrations/*` (no more `/api/connections/connect/...`). For an api_key/fields auth:
 
 ```bash
-appstrate api POST '/api/connections/connect/@scope/name/api-key' \
+appstrate api POST '/api/integrations/@scope%2Fname/auths/primary/connect/fields' \
   -H 'Content-Type: application/json' \
-  -d '{"apiKey": "sk-..."}'
-# → { "success": true }
+  -d '{"credentials": {"api_key": "sk-..."}}'
 ```
 
-Verify with `GET /api/connections` — entry should report `status: "connected"`.
-
-Full field list: [AFPS provider schema](https://afps.appstrate.dev/schema/v1/provider.schema.json).
+(OAuth2 uses `…/connect/oauth2`.) `credentials` field names must match the auth's `credentials.schema` exactly (validated — a mis-keyed field silently breaks injection). See `create-integration.md` + `profiles.md` for the full connection/pins/defaults model.
 
 ## Validation Rules
 
-- Versions: forward-only, no downgrades
-- `latest` dist-tag: auto-managed on non-prerelease publishes
-- AJV: `coerceTypes: true`, no `additionalProperties: false`
-- Custom fields: use `x-` prefix (e.g., `x-outputRetries`)
-- Updates require `lockVersion` field (optimistic locking, 409 on conflict)
+- Versions: forward-only, no downgrades. `latest` dist-tag auto-managed on non-prerelease publishes.
+- AJV (dynamic schemas): `coerceTypes: true`, no `additionalProperties: false`.
+- AFPS manifests are validated **strict** against the published JSON Schema — unknown top-level keys are rejected (use `_meta` for vendor extensions).
+- Updates use optimistic locking (`lockVersion`, 409 on conflict).
+- `$ref` in `credentials.schema` must be fragment-only (`#/...`) — external refs rejected (SSRF guard).

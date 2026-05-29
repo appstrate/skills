@@ -1,50 +1,46 @@
 {
-  "$schema": "https://afps.appstrate.dev/schema/v1/flow.schema.json",
+  "$schema": "https://schemas.afps.dev/v0/agent.schema.json",
   "name": "@SCOPE/CHANGE-ME",
   "version": "1.0.0",
   "type": "agent",
-  "schemaVersion": "1.0",
-  "displayName": "Agent Display Name",
+  "schema_version": "0.1",
+  "display_name": "Agent Display Name",
   "description": "One-line description",
   "author": "author-name",
   "keywords": [],
 
   "dependencies": {
-    "providers": {},
     "skills": {},
-    "tools": {}
+    "mcp_servers": {},
+    "integrations": {}
   },
 
-  "providersConfiguration": {},
+  "integrations_configuration": {},
+
+  "runtime_tools": ["output", "report"],
 
   "input": {
     "schema": {
       "type": "object",
-      "properties": {},
-      "required": [],
-      "propertyOrder": []
+      "properties": {
+        "query": { "type": "string", "title": "Question" },
+        "document": {
+          "type": "string",
+          "format": "uri",
+          "contentMediaType": "application/pdf",
+          "title": "Reference PDF",
+          "description": "Uploaded via upload://, available at ./documents/<filename> in the sandbox"
+        }
+      },
+      "required": ["query"]
     },
-    "_comment_file_fields": "To accept an uploaded file: declare a string property with format='uri' + contentMediaType='<mime>', and add a sibling fileConstraints.<propertyName> block (NOT inside schema). All three keys are required together. See references/manifest-schema.md §'File / upload fields'. Example below — uncomment, adapt, then remove _comment_* keys.",
-    "_example_with_file_field": {
-      "schema": {
-        "type": "object",
-        "properties": {
-          "query": { "type": "string", "title": "Question" },
-          "document": {
-            "type": "string",
-            "format": "uri",
-            "contentMediaType": "application/pdf",
-            "title": "Reference PDF",
-            "description": "Uploaded via upload://, available at ./documents/<filename> in the sandbox"
-          }
-        },
-        "required": ["query"]
-      },
-      "fileConstraints": {
-        "document": { "accept": "application/pdf,.pdf", "maxSize": 33554432 }
-      },
-      "propertyOrder": ["query", "document"]
-    }
+    "file_constraints": {
+      "document": { "accept": "application/pdf,.pdf", "max_size": 33554432 }
+    },
+    "ui_hints": {
+      "query": { "placeholder": "Ask the agent something…" }
+    },
+    "property_order": ["query", "document"]
   },
 
   "config": {
@@ -52,7 +48,7 @@
       "type": "object",
       "properties": {},
       "required": [],
-      "propertyOrder": []
+      "property_order": []
     }
   },
 
@@ -62,13 +58,12 @@
       "properties": {
         "summary": {
           "type": "string",
-          "description": "Execution summary"
+          "description": "Shape of the object passed to output({ data })"
         }
       },
       "required": ["summary"]
     }
   },
 
-  "timeout": 300,
-  "x-outputRetries": 2
+  "timeout": 300
 }
