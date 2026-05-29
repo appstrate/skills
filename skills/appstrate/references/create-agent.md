@@ -77,8 +77,11 @@ Start from `assets/agent-manifest.json`. Key fields:
 
 - **`dependencies.integrations`** / **`dependencies.mcp_servers`** / **`dependencies.skills`** are flat maps `{ "@scope/name": "semverRange" }`. The legacy keys `dependencies.tools` and `dependencies.providers` are **rejected at publish** (`LegacyDepKeyError`).
 - **`integrations_configuration.<id>`** configures a depended-on integration. Each key must match a `dependencies.integrations` entry. Fields:
-  - `tools: string[]` (or `"*"`) — **only for MCP integrations** (`source.kind: local`/`remote`). Values MUST be real tool names from the integration's `manifest.tools_policy` (verify via `GET /api/integrations` — see Step 0). Inventing tool names → **import rejected** (`unknown_tool`). Tool selection drives OAuth scope inference (least privilege).
-  - For a `source.kind: none` integration (plain REST via `{ns}__api_call`, e.g. `@appstrate/gmail`), **do NOT list `tools`** — it exposes none. Just declare the dependency and (optionally) the `auth_key`; the agent calls the API through the `{ns}__api_call` tool.
+  - `tools: string[]` (or `"*"`) — **the integration's tools to expose to the agent. REQUIRED to get anything callable.** ⚠️ **Absent or `[]` = ZERO tools exposed** (the run-time resolver filters everything out) — the agent then sees no integration tool at all and falls back to `read`/`bash`. This is the #1 silent mistake.
+    - `source.kind: none` (REST proxy) → list **`"api_call"`** (the credential-injecting tool), plus **`"api_upload"`** if you need resumable uploads. `api_call` IS a selectable tool — you must name it.
+    - `source.kind: local`/`remote` (MCP) → list the real tool names from the integration's `manifest.tools_policy` (verify via `GET /api/integrations`). Inventing names → **import rejected** (`unknown_tool`).
+    - `"*"` → expose everything (only if the integration sets `allow_undeclared_tools`).
+    - Tool selection also drives OAuth scope inference (least privilege).
   - `auth_key` — one of the integration's real `manifest.auths` keys (e.g. `primary`, `oauth`, `pat`). Disambiguates a multi-auth integration; a wrong key is rejected.
   - `scopes` — optional explicit OAuth scopes (escape hatch; normally inferred from `tools`).
 

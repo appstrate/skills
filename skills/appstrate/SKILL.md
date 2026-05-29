@@ -230,6 +230,7 @@ Distinct mechanisms with different persistence. Full breakdown: `references/conc
 | `404 …/%40scope/…` though the agent exists | URL built with `encodeURIComponent(scope)` → `%40` | Interpolate the scope raw |
 | Run `success` but `result.summary` is `undefined` | Result is nested under `result.output.X` | Read `result.output.summary` |
 | 412 `missing_integration_connection` | Chosen/required integration connection not accessible to the actor | Connect the integration, or pass a valid `connection_overrides` (see `profiles.md`) |
+| Agent can't reach the integration (logs: `api_call ready (0 tools)`, agent falls back to `read`/`bash`, "tool not available") | `integrations_configuration[id].tools` is **absent/`[]`** → resolver exposes **zero** tools | Add the tool(s): `"tools": ["api_call"]` for a `none` integration (the #1 silent mistake), or the real `tools_policy` names for MCP. See `references/create-agent.md` |
 | Agent ignores instructions you wrote as prose | Free text outside a tool call is never delivered | Route everything through tool calls; don't list/describe tools in the prompt (`prompt-writing.md`) |
 | `{ns}__api_call` returns empty `text` | Response ≥ 32 KB spilled to a `resource_link` | Resolve via `ctx.readResource(uri)` (`references/large-responses.md`) |
 | Integration connects but calls are unauthenticated | Credential field name ≠ `credentials.schema` field | Match field names exactly (snake_case) |
