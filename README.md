@@ -1,45 +1,12 @@
-# Appstrate Skills
+# Appstrate Skills, archive
 
-Agent Skills for working with [Appstrate](https://appstrate.dev), the open-source agent runtime platform. Install one into your coding agent (Claude Code, Cursor, Google Antigravity, Windsurf, …) and it becomes an Appstrate expert.
+This repository no longer distributes an active Appstrate agent skill. The former `appstrate` skill is retained under `_archives/appstrate` for historical reference only and must not be installed or exposed.
 
 **License:** Apache 2.0 (first-party skills). Community links on this page point to their own licenses.
 
-## Quick install
+## Active skills
 
-Universal one-liner (auto-detects your coding agent and drops the skill in the right place):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate
-```
-
-Or pick your target explicitly:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --claude
-curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --cursor
-curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --antigravity
-curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --universal
-```
-
-Prefer `git clone` directly? Skills are plain folders — see each skill's README below for the target path per agent.
-
-### Updating
-
-Skills evolve. Pull the latest version by re-running the installer with `--update`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate --update
-```
-
-The flag is an alias for `APPSTRATE_SKILLS_FORCE=1` — it overwrites the existing install instead of failing. Without `--update`, a fresh install into an existing directory errors out as a safety net.
-
-## First-party skills
-
-| Skill | What it does |
-|---|---|
-| [`appstrate`](./skills/appstrate) | Install Appstrate, sign in, call the REST API, author AFPS packages, manage profiles across cloud + self-hosted + dev instances |
-
-More first-party skills ship as we write them. Planned: `afps-authoring`, `agent-writing`, `multi-tenancy`, `self-hosting-troubleshooter`.
+None. The installer remains in the repository for historical compatibility, but there is no supported skill to install.
 
 ## Community skills
 

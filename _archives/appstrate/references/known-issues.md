@@ -10,6 +10,9 @@ Conjunctural bugs and limitations. Each entry states whether it was **observed o
 - [Custom integration runs fail with `DraftPackageCatalog: ... has no files in storage` (N/A)](#custom-integration-runs-fail-with-draftpackagecatalog--has-no-files-in-storage-na)
 - [`POST /api/models` and `cost.cacheRead`/`cacheWrite` (probably fixed)](#post-apimodels-and-costcacheread--cachewrite-probably-fixed)
 - [Sidecar Bun fetch: AWS ALB stickiness lost between separate `{ns}__api_call`s](#sidecar-bun-fetch-aws-alb-stickiness-lost-between-separate-nsapi_calls)
+- [Credential expiry: 401 on a working profile, 403 after a platform update](#credential-expiry-401-on-a-working-profile-403-after-a-platform-update)
+- [SSE realtime: EventSource can't send an `Authorization` header](#sse-realtime-eventsource-cant-send-an-authorization-header)
+- [Inline run 422 `MISSING_SKILL` / unresolved dependency](#inline-run-422-missing_skill--unresolved-dependency)
 
 ---
 
@@ -132,3 +135,37 @@ This is timing-sensitive: it works on some networks (jar updates faster than the
 **Workaround B — route via a local integration + solver**: for Spring Security flows that genuinely need a pre-flight GET (e.g., the login page produces a server-side token that the POST must echo), drive a tenant-side browser solver. Chromium handles ALB stickiness correctly because it batches cookie reads/writes inside one process. See `references/flaresolverr-pattern.md`.
 
 **Upstream**: no PR planned. Workaround A handles the common case; workaround B handles the rest.
+
+---
+
+## Credential expiry: 401 on a working profile, 403 after a platform update
+
+Not bugs, but the two failures that look like one and get misdiagnosed as a broken endpoint.
+
+**`401` on a profile that worked yesterday** — the device-flow JWT expired and its refresh token was rotated out (typically after a week of inactivity). Fix: `appstrate login [--profile <name>]`. Nothing else, no header to add.
+
+**`403` right after a platform update** — the API key predates a scope introduced by the update, so it is authenticated but not authorized. Fix: create a fresh key in the webapp (Org settings → Application → API Keys → New), or re-run `appstrate login` if you're on a JWT.
+
+**Upstream**: no PR planned, both are expected credential lifecycle.
+
+---
+
+## SSE realtime: EventSource can't send an `Authorization` header
+
+**Symptom**: subscribing to `/api/realtime/...` with a bearer header works from `curl` but not from a browser `EventSource`, which has no API for custom headers.
+
+**Fix**: SSE endpoints accept the API key as a query param instead: `?token=ask_…`. Browser EventSource can also rely on cookies; API keys are the server-side path. With `appstrate api`, none of this applies: pass `-H 'Accept: text/event-stream'` and the CLI handles the bearer.
+
+**Upstream**: no PR planned, the query-param path is the canonical answer for header-less clients.
+
+---
+
+## Inline run 422 `MISSING_SKILL` / unresolved dependency
+
+**Symptom**: `POST /api/runs/inline` returns 422 naming a dependency, even though the manifest is well-formed.
+
+**Cause**: inline manifests may only reference packages the org has **already imported**. The catalog-side check rejects anything else. There is no implicit install.
+
+**Fix**: confirm availability (`GET /api/packages/skills`, `GET /api/integrations`), import what's missing, then re-run. Preflight with `POST /api/runs/inline/validate`, which costs no credits.
+
+**Upstream**: no PR planned, this is the intended catalog isolation.

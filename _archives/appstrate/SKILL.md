@@ -1,6 +1,6 @@
 ---
 name: appstrate
-description: Build, deploy, run, and iterate on AI agents on self-hosted Appstrate instances via the `appstrate` CLI and REST API. Covers writing an agent (manifest.json + prompt.md), declaring `runtime_tools` (output/log/note/pin/report), wiring **integrations** (`source.kind` none/local/remote, credential delivery) and **mcp-servers** (MCPB `server.{type,entry_point}`), packaging as `.afps`, importing, running (persisted or inline via `/api/runs/inline`), validating a manifest dry-run, monitoring, scheduling, connecting OAuth or API-key services, and switching between prod/staging/dev profiles (`APPSTRATE_PROFILE`, "on prod / local / dev"). Everything is a package with a scoped name (`@scope/name`); four types: `agent`, `skill`, `mcp-server`, `integration`. Triggers on AFPS, sidecar `{ns}__api_call`, integrations, mcp-servers, runtime_tools, scoped packages (`@scope/name`), `INLINE_RUN_LIMITS`, self-hosted Appstrate, or any `appstrate` CLI invocation. **Assumes `appstrate whoami` already succeeds** — does NOT run `appstrate install` (install is a human decision, routed to manual terminal steps).
+description: Build, deploy, run and iterate on AI agents on self-hosted Appstrate instances (appstrate.com), through the `appstrate` CLI, the `appstrate-default` MCP server or the REST API. Covers writing an agent (manifest.json + prompt.md), declaring `runtime_tools` (output/log/note/pin/report), wiring **integrations** (`source.kind` none/local/remote, credential delivery) and **mcp-servers** (MCPB `server.{type,entry_point}`), packaging as `.afps`, importing, running (persisted or inline via `/api/runs/inline`), monitoring, scheduling, connecting OAuth or API-key services, and picking the right instance profile (`APPSTRATE_PROFILE`, "on prod / local / dev"). Everything is a package with a scoped name (`@scope/name`); four types are `agent`, `skill`, `mcp-server`, `integration`. Triggers on AFPS, sidecar `{ns}__api_call`, integrations, mcp-servers, runtime_tools, scoped packages (`@scope/name`), `INLINE_RUN_LIMITS`, self-hosted Appstrate, or any `appstrate` CLI invocation. **Assumes `appstrate whoami` already succeeds**; does NOT run `appstrate install` (install is a human decision, routed to manual terminal steps).
 ---
 
 # Appstrate
@@ -11,12 +11,9 @@ Manage AI agents on self-hosted Appstrate instances via the `appstrate` CLI or t
 
 ## Sections
 
-[Setup](#setup) · [Profile management](#profile-management) · [API Conventions](#api-conventions) · [Quick Reference](#quick-reference) · [Create an Agent](#create-an-agent) · [Runtime Tools](#runtime-tools) · [Run an Agent](#run-an-agent) · [Run Inline](#run-inline-no-package-import) · [Update an Agent](#update-an-agent-iterate) · [Schedule an Agent](#schedule-an-agent) · [Create a Skill](#create-a-skill) · [Create an MCP-server](#create-an-mcp-server) · [Create an Integration](#create-an-integration) · [Data Model](#data-model-input-vs-config-vs-memory-vs-output) · [Common Errors](#common-errors) · [References](#references)
+[Setup](#setup) · [Call the API](#call-the-api) · [Profile management](#profile-management) · [Quick Reference](#quick-reference) · [Create an Agent](#create-an-agent) · [Runtime Tools](#runtime-tools) · [Run an Agent](#run-an-agent) · [Run Inline](#run-inline-no-package-import) · [Update an Agent](#update-an-agent-iterate) · [Schedule an Agent](#schedule-an-agent) · [Create a Skill](#create-a-skill) · [Create an MCP-server](#create-an-mcp-server) · [Create an Integration](#create-an-integration) · [Data Model](#data-model-input-vs-config-vs-memory-vs-output) · [Common Errors](#common-errors) · [References](#references)
 
-- **API docs**: `$APPSTRATE_URL/api/docs` on your instance (or `appstrate openapi list` for the active profile)
-- **OpenAPI JSON**: `GET /api/openapi.json` (or `appstrate openapi export`)
-- **GitHub (open-source)**: https://github.com/appstrate/appstrate
-- **CLI source**: `apps/cli/` inside the monorepo
+- **GitHub (open-source)**: https://github.com/appstrate/appstrate · **CLI source**: `apps/cli/` inside the monorepo
 
 ## Setup
 
@@ -26,7 +23,7 @@ Before doing anything else, verify the user already has a working Appstrate inst
 appstrate whoami
 ```
 
-If that succeeds, skip to [API conventions](#api-conventions). If it fails (command not found, `Profile "default" not configured`, network error), the user hasn't installed yet — stop and walk them through the manual install below.
+If that succeeds, skip to [Call the API](#call-the-api). If it fails (command not found, `Profile "default" not configured`, network error), the user hasn't installed yet — stop and walk them through the manual install below.
 
 ### Manual install (instruct the user, do not run via Bash)
 
@@ -48,71 +45,49 @@ Both prompt for the tier (default **Tier 0** = Bun only, zero Docker) and pick a
 
 For edge cases the skill does NOT cover by default (headless CI, agent-delegated install, tier upgrades, API-key fallback): `references/setup.md`. For multi-instance (prod + staging + dev): named profiles via `--profile <name>`, see `references/profiles.md`.
 
-### Call the API — two paths
+## Call the API
 
-**Primary (recommended for coding agents): `appstrate api`**
+**Routing rule, in this order:**
+
+1. **MCP `appstrate-default` connected?** Use it (`get_me`, `search_operations`, `describe_operation`, `invoke_operation`, `run_and_wait`). It self-documents the live API and its own instructions win over this skill. Caveat: scoped to **one organization** and its default application.
+2. **Otherwise, or for any other instance / org: `appstrate api`.** One profile per instance (`-p, --profile <name>`, or `APPSTRATE_PROFILE`), which makes the CLI the only multi-instance path. It injects the bearer token and the org/application headers, so the agent **never sees the raw token**.
+   ```bash
+   appstrate api POST /api/agents/@your-org/my-agent/run -d '{"input":{"query":"weekly"}}'
+   appstrate api /api/packages/agents     # method inferred
+   appstrate api --help                   # full flag list (curl-compatible)
+   ```
+3. **Raw curl** only where the CLI isn't installed (CI image, container). An API key is pinned to one org + one application, so `Authorization: Bearer $APPSTRATE_API_KEY` is the only auth needed. First key: webapp → **Org settings → Application → API Keys → New** (shown once).
+
+> **Raw-curl-only trap**: a scoped path keeps the **literal `@`** (`@your-org/my-agent`). `encodeURIComponent` turns it into `%40` → misleading `404`; drop it and the SPA middleware answers HTML. The CLI and the MCP server build the path themselves.
+
+### Discover endpoints (never guess a route or a body)
 
 ```bash
-appstrate api GET /api/packages/agents
-appstrate api POST /api/agents/@your-org/my-agent/run -d '{"input":{"query":"weekly"}}'
-appstrate api /api/packages/agents             # method inferred
+appstrate openapi list --search schedule    # also --tag, --method, --path <glob>
+appstrate openapi show createRun            # or: openapi show GET /api/runs
+appstrate openapi export -o openapi.json    # raw schema dump
 ```
 
-`appstrate api` injects `Authorization: Bearer <token>`, `X-Org-Id`, and `X-App-Id` from the active profile. The agent **never sees the raw token**. Supports common curl flags: `-H`, `-d`, `-F`, `-q`, `-X`, `-o`, `-i`, `-s`, `-L`, `-w '%{http_code}'`, etc. Pick the profile with `-p, --profile <name>` (or `APPSTRATE_PROFILE`).
-
-**Fallback (legacy, or non-CLI environments): raw curl with an API key**
-
-A key is pinned to one org + one application, so the bearer header is the only auth needed:
-
-```bash
-curl -s "$APPSTRATE_URL/api/packages/agents" -H "Authorization: Bearer $APPSTRATE_API_KEY"
-```
-
-First key from the webapp: **Org settings → Application → API Keys → New** (shown once).
+MCP equivalents: `search_operations` → `describe_operation`. Schemas, headers, casing and the response envelope all come from there, not from this file. Swagger UI: `$APPSTRATE_URL/api/docs`.
 
 ## Profile management
 
 One profile per Appstrate instance, selected with `-p, --profile <name>`. **Infer the profile from the prompt**: "on prod"/"production" → `prod`; "on local"/"localhost"/"sur mon install" → `local`; "on dev" → `dev`; no mention → active default. If the inferred profile isn't configured, run `appstrate whoami --profile <name>` (exit 1) and ask the user to `appstrate login --profile <name>`. Keyring/TOML layout, cross-instance iteration: `references/profiles.md`. (Note: the CLI `connections` command group and connection-profiles were removed — connections are now managed per-integration; see `profiles.md`.)
 
-## API Conventions
-
-**Auth** — `appstrate api` handles it. For raw curl, every org-scoped request needs:
-```
-Authorization: Bearer ask_…          # OR a device-flow JWT
-X-Org-Id: <org-id>
-X-App-Id: <application-id>            # required for app-scoped routes (most resource routes)
-```
-
-**Scoped routes** — scope MUST include the literal `@`: `@your-org/my-agent`. Without `@`, the SPA middleware returns HTML. **The `@` must be literal, not URL-encoded** — `encodeURIComponent("@scope")` → `%40scope` → misleading `404`. Interpolate `${scope}` raw.
-
-**Casing** — request bodies and responses are **snake_case** (`cron_expression`, `connection_overrides`, `display_name`), with camelCase carve-outs for universal DB fields (`id`, `*Id`, `createdAt`, `hasMore`) and model/proxy endpoints (`modelId`, `proxyId`). List responses are enveloped: `{ object, data, hasMore }`.
-
-**SSE realtime** — SSE endpoints accept the API key via query param `?token=ask_…`; for `appstrate api`, pass `-H 'Accept: text/event-stream'`.
-
 ## Quick Reference
 
 | Task | Action |
 |------|--------|
-| Install Appstrate | **Don't run via Bash.** Tell the user to run `bunx appstrate install` (or `curl -fsSL https://get.appstrate.dev \| bash`), then `appstrate login`. Verify with `appstrate whoami`. |
-| Check identity | `appstrate whoami` |
+| Install Appstrate | **Never via your Bash tool.** Hand the commands to the user, see [Setup](#setup). |
+| Check identity | `appstrate whoami` (MCP: `get_me`) |
 | List orgs / apps | `appstrate org {list,current,switch,create}` · `appstrate app {…}` |
-| Explore the API | `appstrate openapi list [--search term] [--method POST]` · `openapi show <op>` |
-| Call the API | `appstrate api <METHOD> </api/path> [curl-flags]` |
-| List agents / skills | `appstrate api GET /api/packages/agents` · `…/skills` |
-| List integrations | `appstrate api GET /api/integrations` |
+| Find an endpoint | `appstrate openapi list --search <term>` · `openapi show <op>` (MCP: `search_operations` / `describe_operation`) |
+| Call the API | MCP `invoke_operation` (or `run_and_wait` for runs), else `appstrate api <METHOD> </api/path> [curl-flags]` |
 | Create an agent | Write manifest.json + prompt.md, pack as .afps, import |
-| Run an agent (persisted) | `appstrate api POST /api/agents/@scope/name/run -d '{"input":…}'` |
-| Run an agent (inline) | `appstrate api POST /api/runs/inline` — manifest + prompt in body → `202 { runId, packageId }` |
-| Validate a manifest (dry-run) | `appstrate api POST /api/runs/inline/validate` |
-| Check run / logs | `appstrate api GET /api/runs/{id}` · `…/logs` |
-| List runs | `appstrate api GET /api/runs -q kind=all -q status=success` |
 | Update an agent | Bump version, re-pack, re-import |
-| Schedule an agent | `appstrate api POST /api/agents/@scope/name/schedules` (inline runs are not schedulable) |
-| Import any package | `appstrate api POST /api/packages/import -F file=@pkg.afps` (agent/skill/mcp-server/integration) |
-| Connect an integration | `appstrate api POST '/api/integrations/{packageId}/auths/{authKey}/connect/fields'` (or `/connect/oauth2`) |
-| Upload files (before a run) | `POST /api/uploads` → `PUT` bytes → pass `"upload://upl_xxx"` in `input.<file_field>` (see [File uploads](#file-uploads)) |
+| Upload files (before a run) | 3-step token flow, not multipart on the run route: [File uploads](#file-uploads) |
 
-There is **no** `/api/packages/tools` or `/api/packages/providers` listing, and **no** `PUT /api/agents/.../tools` — MCP servers and integrations are selected in the agent manifest. For conventions, gotchas, rate limits: `references/api-cheatsheet.md`.
+**Negative facts** (an absence costs round-trips to discover, `openapi list` won't tell you): there is **no** `/api/packages/tools`, `/api/packages/providers`, `/api/packages/mcp-servers` or `/api/packages/integrations` listing, and **no** `PUT /api/agents/.../tools`. MCP servers and integrations are selected inside the agent manifest (`dependencies.mcp_servers` + `integrations_configuration`), never enumerated through a packages listing. Package listing is only `GET /api/packages/agents` and `…/skills`; installed integrations are `GET /api/integrations`. Inline runs are **not** schedulable. Runs are fire-and-forget (`202`), there is no synchronous result mode on the REST API.
 
 ## Create an Agent
 
@@ -130,17 +105,14 @@ Five platform built-ins — `output`, `log`, `note`, `pin`, `report` — opt-in 
 
 ## Run an Agent
 
+MCP: `run_and_wait` (do **not** launch runs through `invoke_operation`). CLI:
+
 ```bash
 appstrate api POST /api/agents/@scope/name/run \
-  -H 'Content-Type: application/json' \
-  -d '{"input": {"query": "weekly report"}}'
-
-# Pin a specific integration connection for this run (optional):
-appstrate api POST /api/agents/@scope/name/run \
-  -d '{"input": {}, "connection_overrides": {"@appstrate/gmail": "<connection_id>"}}'
+  -d '{"input": {"query": "weekly"}, "connection_overrides": {"@appstrate/gmail": "<connection_id>"}}'
 ```
 
-`connection_overrides` is a flat map `{ "@scope/integration": "<connection_id>" }` (replaces the old `providerProfiles`). If the chosen connection isn't accessible, the run fails **412 `missing_integration_connection`**. The resolved choice is snapshotted server-side (`resolved_connections`, never returned on the wire). Connection resolution cascades through 7 mechanisms (admin pin → org default enforce → run override → schedule override → member pin → org default soft → fallback) — see `references/profiles.md`.
+`connection_overrides` is optional, a flat map `{ "@scope/integration": "<connection_id>" }` (replaces the old `providerProfiles`). If the chosen connection isn't accessible, the run fails **412 `missing_integration_connection`**. The resolved choice is snapshotted server-side (`resolved_connections`, never returned on the wire). Connection resolution cascades through 7 mechanisms (admin pin → org default enforce → run override → schedule override → member pin → org default soft → fallback) — see `references/profiles.md`. Pin a package version with `-q version=1.0.0` (or `version=latest`); omit it and the version resolved for the caller's application wins.
 
 ### File uploads
 
@@ -159,24 +131,13 @@ The manifest field must be wired as a file field (`format:"uri"` + `contentMedia
 
 ### Monitor
 
-```bash
-appstrate api GET /api/runs/{id}                 # status
-appstrate api GET /api/runs/{id}/logs            # logs
-appstrate api POST /api/runs/{id}/cancel         # cancel
-appstrate api GET /api/realtime/runs/{id} -H 'Accept: text/event-stream'   # SSE
-appstrate api GET /api/runs -q kind=inline -q status=success -q limit=50   # global list
-```
+Status, logs, cancel, global list: `appstrate openapi list --tag runs`. Status lifecycle: `pending` → `running` → `success` | `failed` | `timeout` | `cancelled`. Runs are fire-and-forget (`202`); there is no synchronous result mode (the MCP `run_and_wait` tool does the polling for you).
 
-Status lifecycle: `pending` → `running` → `success` | `failed` | `timeout` | `cancelled`. Runs are fire-and-forget (`202`); there is no synchronous result mode.
+> **SSE**: with `appstrate api`, pass `-H 'Accept: text/event-stream'`. Header-less clients (browser `EventSource`) need a different auth path: `references/known-issues.md`.
 
 ## Run Inline (No Package Import)
 
-Put the full manifest + prompt in the body. Dependencies must reference **existing** org/system packages. Not schedulable. `connection_overrides` is NOT accepted inline (resolution falls back to pins/defaults).
-
-```bash
-appstrate api POST /api/runs/inline           # → 202 { runId, packageId }
-appstrate api POST /api/runs/inline/validate  # dry-run preflight, no credits
-```
+`POST /api/runs/inline` (→ `202 { runId, packageId }`), with a dry-run preflight at `/api/runs/inline/validate` that costs no credits. Put the full manifest + prompt in the body. Dependencies must reference **existing** org/system packages. Not schedulable. `connection_overrides` is NOT accepted inline (resolution falls back to pins/defaults).
 
 Body schema, `INLINE_RUN_LIMITS` (note: `max_tools`/`max_authorized_uris`/`wildcard_uri_allowed` were removed), compaction: `references/inline-runs.md`.
 
@@ -186,7 +147,7 @@ Body schema, `INLINE_RUN_LIMITS` (note: `max_tools`/`max_authorized_uris`/`wildc
 
 ## Schedule an Agent
 
-`POST /api/agents/@scope/name/schedules` with a **snake_case** body: `{ name, cron_expression, timezone, input, connection_overrides? }` (+ optional `config_override`, `model_id_override`, `proxy_id_override`, `version_override`). There is **no** `connectionProfileId` — the schedule runs as the creating actor; `connection_overrides` (frozen at creation) pins integration connections. Inline runs are NOT schedulable.
+Body schema: `appstrate openapi show POST /api/agents/{scope}/{name}/schedules`. What the schema won't tell you: there is **no** `connectionProfileId` — the schedule runs as the creating actor, and `connection_overrides` (frozen at creation) is what pins integration connections. **Inline runs are NOT schedulable.**
 
 ## Create a Skill
 
@@ -237,13 +198,16 @@ Distinct mechanisms with different persistence. Full breakdown: `references/conc
 | `Profile "<name>" not configured` | No `config.toml` entry | `appstrate login --profile <name>` |
 | CLI rejects a flag this skill documents | Skill older than the installed CLI | `curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh \| bash -s appstrate --update` |
 
+Credential expiry (`401` on a working profile, `403` after a platform update), inline run `422 MISSING_SKILL`, and the conjunctural platform/CLI bugs: `references/known-issues.md`.
+
 ## References
 
 **Canonical public docs** (authoritative — check first for anything the skill doesn't cover):
 
 - Platform concepts: [/docs/get-started/concepts](https://appstrate.com/docs/get-started/concepts) + [/docs/features/*](https://appstrate.com/docs/features/agents)
 - API authentication: [/docs/api/authentication](https://appstrate.com/docs/api/authentication) · Errors (RFC 9457): [/docs/api/errors](https://appstrate.com/docs/api/errors)
-- CLI reference: [/docs/using-appstrate/cli](https://appstrate.com/docs/using-appstrate/cli)
+- Idempotency (`Idempotency-Key`): [/docs/api/idempotency](https://appstrate.com/docs/api/idempotency) · Webhooks (HMAC): [/docs/api/webhooks-guide](https://appstrate.com/docs/api/webhooks-guide) · Rate limits: [/docs/self-hosting/rate-limits](https://appstrate.com/docs/self-hosting/rate-limits)
+- CLI reference: [/docs/using-appstrate/cli](https://appstrate.com/docs/using-appstrate/cli) (and `appstrate <cmd> --help`)
 - AFPS spec (open standard): [afps.appstrate.dev](https://afps.appstrate.dev)
 - Live OpenAPI for your instance: `$APPSTRATE_URL/api/docs` or `appstrate openapi list`
 
@@ -258,7 +222,6 @@ Distinct mechanisms with different persistence. Full breakdown: `references/conc
 | Platform concepts quick-ref | `references/concepts.md` |
 | Manifest schema quick-ref | `references/manifest-schema.md` |
 | Writing effective prompts (Communication contract) | `references/prompt-writing.md` |
-| API cheatsheet: `appstrate api` flags + gotchas | `references/api-cheatsheet.md` |
 | Inline runs (endpoints, limits, compaction) | `references/inline-runs.md` |
 | Multi-instance profiles + integration connections/pins | `references/profiles.md` |
 | Setup edge cases (headless CI, API-key fallback) | `references/setup.md` |
