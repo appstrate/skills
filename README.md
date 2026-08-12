@@ -1,34 +1,59 @@
-# Appstrate Skills, archive
+# Appstrate Skills
 
-This repository no longer distributes an active Appstrate agent skill. The former `appstrate` skill is retained under `_archives/appstrate` for historical reference only and must not be installed or exposed.
+Ce dépôt distribue un kit de skills portables pour les architectes IA qui configurent Appstrate dans
+leur entreprise. Les mêmes sources peuvent être utilisées depuis un agent de coding ou importées dans
+une organisation Appstrate.
 
-**License:** Apache 2.0 (first-party skills). Community links on this page point to their own licenses.
+Ces skills sont optionnelles. Elles ne sont pas supposées être livrées par défaut sur une instance.
+Chaque organisation les installe sous son propre scope.
 
-## Active skills
+## Kit Appstrate AI Architect
 
-None. The installer remains in the repository for historical compatibility, but there is no supported skill to install.
+| Skill | Rôle |
+| --- | --- |
+| [`appstrate-builder`](skills/appstrate-builder/) | Auditer, concevoir, déployer et valider une implantation Appstrate |
+| [`copilot`](skills/copilot/) | Découvrir des automatisations avec les utilisateurs et choisir leur forme |
+| [`connector-choice`](skills/connector-choice/) | Choisir le meilleur mode d'accès à un service |
+| [`agent-authoring`](skills/agent-authoring/) | Créer, modifier et prouver un agent Appstrate |
+| [`skill-authoring`](skills/skill-authoring/) | Créer ou améliorer une méthode réutilisable |
+| [`web-search`](skills/web-search/) | Effectuer une recherche web sourcée depuis Appstrate |
+| [`appstrate-google-workspace`](skills/appstrate-google-workspace/) | Configurer et diagnostiquer Google Workspace MCP |
 
-## Community skills
+Les 14 méthodes métier du kit sont des références internes de `skill-authoring`. Elles servent de
+matériau de création quand une organisation a besoin d'une méthode. Elles ne sont pas distribuées
+comme skills autonomes.
 
-A curated awesome-list of skills that work well alongside Appstrate, maintained by the community: **[COMMUNITY.md](./COMMUNITY.md)**.
+Voir [`AI-ARCHITECT-KIT.md`](AI-ARCHITECT-KIT.md) pour l'installation et la construction du ZIP.
 
-Open a PR editing that file to add yours — no gate-keeping, just keep it related and linkable.
+## Installation dans un agent de coding
 
-## Supported coding agents
+Le script installe une skill à la fois :
 
-| Agent | Install path (per-user) | Install path (per-project) |
-|---|---|---|
-| [Claude Code](https://docs.claude.com/en/docs/claude-code) | `~/.claude/skills/<name>/` | `.claude/skills/<name>/` |
-| [Cursor](https://cursor.com/docs/skills) | — | `.cursor/skills/<name>/` |
-| [Google Antigravity](https://antigravity.google/docs/skills) | `~/.gemini/antigravity/skills/<name>/` | `.agent/skills/<name>/` |
-| Windsurf, Aider, any AGENTS.md-aware agent | — | `.agent/skills/<name>/` (via [OpenSkills](https://github.com/numman-ali/openskills)) |
+```bash
+curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh \
+  | bash -s appstrate-builder
+```
 
-## What is an Agent Skill?
+Des options existent pour Codex, Claude Code, Cursor, Google Antigravity et un chemin universel. Consulter
+`bash install.sh --help` dans une copie locale du dépôt.
 
-A directory with a `SKILL.md` file. The markdown has YAML frontmatter (`name`, `description`) that tells your agent when to use it, followed by instructions, references, and scripts the agent can load on demand. Standard introduced by [Anthropic](https://github.com/anthropics/skills); now supported (with minor path variations) by every major coding agent.
+## Installation dans Appstrate
 
-The `description` field matters: that's what your agent reads to decide whether to load the skill for a given request. Keep it rich, keyword-dense, and specific to triggers.
+Construire le kit, puis importer chaque ZIP contenu dans son dossier `packages`. Chaque archive place
+le `SKILL.md` à sa racine et peut être importée séparément dans l'organisation cible.
 
-## Contributing
+```bash
+bash scripts/build-ai-architect-kit.sh
+```
 
-See **[CONTRIBUTING.md](./CONTRIBUTING.md)** — two paths: add a first-party skill (PR a folder under `skills/`) or link your own repo (PR a line in `COMMUNITY.md`).
+## Skills communautaires
+
+Une liste de skills compatibles avec Appstrate est maintenue dans [`COMMUNITY.md`](COMMUNITY.md).
+
+## Contribution
+
+Consulter [`CONTRIBUTING.md`](CONTRIBUTING.md) pour proposer une skill first-party ou référencer une
+skill communautaire.
+
+Les skills first-party sont distribuées sous licence Apache 2.0. Les composants adaptés de sources
+externes conservent les notices présentes dans leur dossier.

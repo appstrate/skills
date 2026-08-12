@@ -1,0 +1,4 @@
+interface:
+  display_name: "Google Workspace MCP pour Appstrate"
+  short_description: "Configurer les MCP Google Workspace dans Appstrate"
+  default_prompt: "Utilise $appstrate-google-workspace pour configurer et valider Google Workspace avec le MCP Appstrate ou la CLI Appstrate."
