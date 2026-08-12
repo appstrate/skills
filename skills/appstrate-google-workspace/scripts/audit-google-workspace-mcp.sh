@@ -81,4 +81,3 @@ else
   echo "Audit terminé : $missing_count service(s) requis sont manquants."
   exit 3
 fi
-
