@@ -1,46 +1,46 @@
-# Recherche compte / prospect
+# Account and prospect research
 
-## Objectif
+## Objective
 
-Rassembler en une vue synthétique tout ce qui est utile sur un compte ou un prospect nommé.
+Assemble a concise view of useful information about a named account or prospect.
 
-## Méthode
+## Method
 
-1. **Identification** : confirme l'organisation/la personne visée (attention aux homonymes).
-2. **Collecte** : interroge les sources disponibles (CRM, email, documents, web si pertinent) : statut de la relation, historique d'interactions, signaux d'intérêt ou d'alerte.
-3. **Synthèse** : vue structurée : qui c'est, où en est la relation, signaux notables, recommandation d'action si le contexte le justifie.
+1. **Identify**: confirm the target organization or person and guard against namesakes.
+2. **Collect**: query available CRM, email, document, and relevant web sources for relationship status, interaction history, interest signals, and warning signals.
+3. **Synthesize**: report who the target is, relationship status, notable signals, and a recommended action when justified.
 
-## Règles
+## Rules
 
-- Distingue faits sourcés et déduction : une fiche crédible cite d'où vient chaque information.
-- Compte/prospect introuvable dans les sources : dis-le, ne fabrique pas de profil.
-- Reste factuel sur les signaux d'alerte (churn, deal qui stagne) : pas de dramatisation.
+- Separate sourced facts from inference and cite the origin of important information.
+- If the target is absent from available sources, say so rather than fabricating a profile.
+- Describe churn or stalled-deal signals factually without dramatization.
 
-## Ordre des sources
+## Source order
 
-Commence par les sources relationnelles internes, puis complète avec les sources publiques. Une note
-de réunion ou un échange direct possède la relation. Un site officiel possède les faits déclarés par
-l'entreprise. Une source tierce peut confirmer ou contester, mais ne remplace pas ces deux niveaux.
+Start with internal relationship sources, then add public sources. Meeting notes and direct exchanges
+own the relationship. An official website owns the company's declared facts. A third-party source can
+confirm or dispute these levels but does not replace them.
 
-Pour résoudre un homonyme, exige au moins deux attributs cohérents parmi domaine, rôle, localisation,
-email, profil public ou relation connue. Sinon, garde les candidates séparées.
+To resolve a namesake, require at least two consistent attributes among domain, role, location, email,
+public profile, or known relationship. Otherwise, keep candidates separate.
 
-## Contrat de sortie
+## Output contract
 
 ```text
-Identité confirmée
-- organisation, personne, rôle, preuve d'identité
+Confirmed identity
+- organization, person, role, identity evidence
 
-Relation
-- dernière interaction, sujets ouverts, opportunité ou risque
+Relationship
+- last interaction, open topics, opportunity or risk
 
-Signaux récents
-- fait, date, source, implication possible
+Recent signals
+- fact, date, source, possible implication
 
-Action recommandée
-- prochaine action, raison, information encore manquante
+Recommended action
+- next action, reason, information still missing
 ```
 
-Date chaque signal susceptible de changer et marque toute recommandation comme une interprétation.
-La recherche est terminée lorsque l'identité est suffisamment résolue, que chaque fait important a
-une source et que les inconnues qui pourraient changer l'action sont visibles.
+Date every signal likely to change and label recommendations as interpretations. Research is complete
+when identity is sufficiently resolved, every important fact has a source, and unknowns that could
+change the action are visible.

@@ -1,45 +1,43 @@
-# Triage et brouillons de réponse email
+# Email triage and reply drafts
 
-## Objectif
+## Objective
 
-Trier une boîte de réception et préparer des brouillons de réponse dans le ton de l'utilisateur, jamais envoyés automatiquement.
+Triage an inbox and prepare replies in the user's tone without sending them automatically.
 
-## Méthode
+## Method
 
-1. **Tri** : classe chaque message par urgence/catégorie (à traiter aujourd'hui, peut attendre, informatif, spam probable). Repère les expéditeurs prioritaires si le contexte le permet.
-2. **Brouillon** : pour les messages qui appellent une réponse, rédige un brouillon complet, pas un résumé de ce qu'il faudrait dire. Si l'organisation possède une méthode de voix de marque et que l'agent en dépend, applique-la pour rester dans son ton.
-3. **Restitution** : liste les messages traités avec leur catégorie, et les brouillons proposés, prêts à relire.
+1. **Triage**: classify each message by urgency and category, such as today, can wait, informational, or probable spam. Identify priority senders when context allows.
+2. **Draft**: write a complete reply for messages that need one. Apply an organizational brand-voice method when the agent depends on it.
+3. **Report**: list processed messages with categories and provide review-ready drafts.
 
-## Règles
+## Rules
 
-- Ne jamais envoyer un message : le brouillon reste une proposition à valider par l'utilisateur.
-- Un message ambigu ou nécessitant une information que tu n'as pas : signale-le plutôt que d'inventer une réponse.
-- Respecte les formules de politesse et la langue du message reçu.
+- Never send a message. A draft remains a proposal for user approval.
+- Flag ambiguity or missing information instead of inventing an answer.
+- Respect the received message's language and appropriate formality.
 
-## Heuristique de priorité
+## Priority heuristic
 
-Traite d'abord les engagements avec échéance proche, incidents bloquants, demandes d'un interlocuteur
-prioritaire et messages dont l'inaction crée un coût. Une tonalité pressante ne suffit pas à rendre un
-message urgent. Conserve séparément catégorie, urgence et sentiment afin qu'un message frustré mais
-non urgent ne soit pas surclassé.
+Prioritize commitments with near deadlines, blocking incidents, requests from priority contacts, and
+messages where inaction creates a cost. Urgent tone alone does not make a message urgent. Keep
+category, urgency, and sentiment separate so a frustrated but non-urgent message is not over-ranked.
 
-Avant de rédiger, identifie la question à résoudre, les faits disponibles, la décision attendue et les
-éléments qui exigent confirmation. Une réponse peut poser une question ciblée au lieu de combler une
-information manquante.
+Before drafting, identify the question, available facts, expected decision, and items that need
+confirmation. A reply may ask one targeted question instead of filling missing information.
 
-## Contrat de sortie
+## Output contract
 
 ```json
 {
-  "message_id": "identifiant",
-  "category": "catégorie stable",
+  "message_id": "identifier",
+  "category": "stable category",
   "priority": "today | soon | informational",
-  "reason": "signal observé",
-  "draft": { "subject": "objet", "body": "réponse complète" },
+  "reason": "observed signal",
+  "draft": { "subject": "subject", "body": "complete reply" },
   "needs_user_input": []
 }
 ```
 
-Le brouillon répond au fil dans sa langue, reprend les éléments indispensables et reste proportionné
-à la demande. La méthode est terminée lorsque chaque message du périmètre a une classification
-justifiée et que chaque réponse nécessaire possède un brouillon complet ou une question bloquante.
+The draft responds in the thread's language, includes essential details, and remains proportionate to
+the request. The method is complete when every in-scope message has a justified classification and
+every needed response has either a complete draft or a blocking question.

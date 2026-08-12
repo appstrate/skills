@@ -1,43 +1,52 @@
 ---
 name: appstrate-google-workspace
-description: Configurer, auditer, connecter et diagnostiquer les serveurs MCP Google Workspace dans Appstrate avec gcloud, le MCP local gcloud, le MCP Appstrate ou la CLI Appstrate. Utiliser pour Gmail MCP, Drive MCP, Docs, Sheets, Slides, Calendar, People ou Chat, pour les problèmes OAuth, scopes, utilisateurs test, IAM mcp.toolUser, services désactivés, Developer Preview, installation locale ou cloud, et pour valider les intégrations sans modifier les données Google.
+description: Configure, audit, connect, and diagnose Google Workspace MCP servers in Appstrate through gcloud, the local gcloud MCP, the Appstrate MCP, or the Appstrate CLI. Use for Gmail, Drive, Docs, Sheets, Slides, Calendar, People, or Chat MCP; OAuth, scopes, test users, IAM mcp.toolUser, disabled services, Developer Preview, local or cloud installation; and read-only integration validation.
 ---
 
-# Google Workspace MCP dans Appstrate
+# Google Workspace MCP in Appstrate
 
-Orchestrer le parcours automatisable avec les CLI, puis guider l’utilisateur uniquement aux points où Google exige une action humaine.
+Orchestrate automatable steps through CLIs, then guide the user only where Google requires a human
+action.
 
-## Distinguer les trois couches
+## Distinguish the layers
 
-1. `@google-cloud/gcloud-mcp` est un serveur MCP local d’administration. Il exécute la CLI `gcloud` avec les permissions du compte actif.
-2. Les serveurs MCP Google Workspace sont des services distants séparés pour Gmail, Drive, Docs, Sheets, Slides, Calendar, People et Chat.
-3. Le MCP Appstrate et la CLI Appstrate administrent l’instance. Ce sont deux interfaces vers la même plateforme, avec des mécanismes de connexion distincts.
-4. Les intégrations Appstrate décrivent les endpoints, scopes, politiques d’outils et connexions OAuth utilisées par les agents.
+1. `@google-cloud/gcloud-mcp` is a local administration MCP server. It runs the `gcloud` CLI with the
+   active account's permissions.
+2. Google Workspace MCP servers are separate remote services for Gmail, Drive, Docs, Sheets, Slides,
+   Calendar, People, and Chat.
+3. The Appstrate MCP and Appstrate CLI administer an instance. They are two interfaces to the same
+   platform with different connection mechanisms.
+4. Appstrate integrations define the endpoints, scopes, tool policies, and OAuth connections used by
+   agents.
 
-Une couche fonctionnelle ne prouve pas que les deux autres sont correctement configurées.
+One working layer does not prove that the other layers are configured correctly.
 
-## Charger la référence
+## Load the reference
 
-Lire [references/google-workspace-mcp.md](references/google-workspace-mcp.md) avant une installation, une activation, une migration de manifeste ou un diagnostic. Elle contient les services, endpoints, tests et erreurs connues.
+Read [references/google-workspace-mcp.md](references/google-workspace-mcp.md) before installation,
+activation, manifest migration, or diagnosis. It contains services, endpoints, tests, and known
+errors.
 
-## Parcours
+## Process
 
-### 1. Fixer la cible
+### 1. Fix the target
 
-Obtenir explicitement :
+Obtain explicitly:
 
-- le `PROJECT_ID` et son `PROJECT_NUMBER` ;
-- le compte Google Workspace à connecter ;
-- l’instance, l’organisation et l’application Appstrate ;
-- l’interface Appstrate disponible, MCP, CLI ou les deux ;
-- les produits Google à activer ;
-- le mode demandé : audit, configuration ou diagnostic.
+- `PROJECT_ID` and `PROJECT_NUMBER`;
+- the Google Workspace account to connect;
+- the Appstrate instance, organization, and application;
+- the available Appstrate interface, MCP, CLI, or both;
+- the Google products to enable;
+- the requested mode: audit, configuration, or diagnosis.
 
-Ne jamais déduire le projet d’une configuration implicite pour une opération qui modifie Google Cloud. Utiliser `--project` sur chaque commande concernée. Pour Appstrate, confirmer la cible avec le MCP ou utiliser un profil CLI explicite.
+Never infer the project from implicit configuration for an operation that changes Google Cloud. Use
+`--project` on every relevant command. For Appstrate, confirm the target through the MCP or use an
+explicit CLI profile.
 
-### 2. Vérifier les identités avant toute modification
+### 2. Verify identities before changing anything
 
-Exécuter :
+Run:
 
 ```bash
 gcloud config list --format='text(core.account,core.project)'
@@ -45,82 +54,107 @@ gcloud projects describe PROJECT_ID \
   --format='text(projectId,projectNumber,lifecycleState)'
 ```
 
-Si le compte ou le projet ne correspond pas à la cible, arrêter les mutations et corriger la connexion.
+If the account or project does not match the target, stop mutations and correct the connection.
 
-Pour un audit complet, exécuter `scripts/audit-google-workspace-mcp.sh PROJECT_ID WORKSPACE_EMAIL`. Le script est en lecture seule.
+For a complete audit, run `scripts/audit-google-workspace-mcp.sh PROJECT_ID WORKSPACE_EMAIL`. The
+script is read-only.
 
-### 3. Séparer automatisation et points humains
+### 3. Separate automation from human steps
 
-Déléguer au CLI : activation des services, lecture et attribution IAM autorisée, diagnostics, import des packages Appstrate, activation des intégrations et tests.
+Delegate to the CLI: service activation, authorized IAM reads and grants, diagnostics, Appstrate
+package imports, integration activation, and tests.
 
-Guider l’utilisateur dans le navigateur pour :
+Guide the user in the browser to:
 
-- accepter les conditions et soumettre la candidature Developer Preview ;
-- configurer Branding, Audience, Data Access et les utilisateurs test ;
-- créer ou modifier le client OAuth Web Google Auth Platform ;
-- configurer l’application Google Chat ;
-- effectuer le consentement OAuth de chaque compte.
+- accept terms and submit the Developer Preview application;
+- configure Branding, Audience, Data Access, and test users;
+- create or modify the Google Auth Platform Web OAuth client;
+- configure the Google Chat application;
+- complete OAuth consent for each account.
 
-Google interdit la création et la modification programmatiques des clients OAuth Google classiques. Ne pas présenter `gcloud iam oauth-clients` comme un remplacement, car ces clients IAM ne couvrent pas les scopes Workspace requis.
+Google does not support programmatic creation or modification of classic Google OAuth clients. Do not
+present `gcloud iam oauth-clients` as a substitute because IAM clients do not cover the required
+Workspace scopes.
 
-### 4. Activer uniquement ce qui est demandé
+### 4. Enable only what was requested
 
-Activer l’API produit et le service MCP correspondant. People utilise seulement `people.googleapis.com` pour les deux fonctions.
+Enable both the product API and its corresponding MCP service. People uses
+`people.googleapis.com` for both functions.
 
-Traiter une modification IAM ou l’activation d’un service comme autorisée uniquement si la demande de l’utilisateur couvre cette configuration. Vérifier la cible juste avant l’appel.
+Treat IAM changes and service activation as authorized only when the user's request covers that
+configuration. Verify the target immediately before the call.
 
-### 5. Choisir l’interface Appstrate
+### 5. Choose the Appstrate interface
 
-Préférer le MCP Appstrate lorsqu’il est déjà connecté à la bonne organisation et expose l’opération requise. Appeler d’abord `get_me` pour confirmer l’identité, l’organisation, le rôle et les intégrations déjà connectées. Rechercher ensuite l’intention avec `search_operations`, utiliser son `best_match` si le contrat correspond, sinon appeler `describe_operation`, puis `invoke_operation`. Utiliser `run_and_wait` pour lancer un test et attendre directement son état terminal.
+Prefer the Appstrate MCP when already connected to the correct organization and it exposes the
+required operation. Call `get_me` first to confirm identity, organization, role, and existing
+integration connections. Then search for the intent with `search_operations`. Use its `best_match` if
+the contract fits, otherwise call `describe_operation`, then `invoke_operation`. Use `run_and_wait` to
+start a test and wait directly for its terminal state.
 
-L’endpoint MCP Appstrate est propre à une organisation. Il n’existe aucun changement d’organisation pendant une session. Connecter un endpoint distinct pour chaque organisation et vérifier l’application effective avant une mutation.
+An Appstrate MCP endpoint belongs to one organization. The organization cannot be switched within a
+session. Connect a distinct endpoint for each organization and verify the effective application
+before a mutation.
 
-Utiliser la CLI Appstrate quand le MCP n’est pas connecté, quand l’opération requiert un fichier local que le contrat MCP courant ne sait pas transporter, ou quand l’utilisateur demande explicitement la CLI. Lire l’aide de la version installée, choisir un profil explicite et utiliser `appstrate api` lorsque l’opération REST n’a pas de commande dédiée.
+Use the Appstrate CLI when the MCP is not connected, the operation requires a local file that the
+current MCP contract cannot transport, or the user explicitly requests the CLI. Read help from the
+installed version, choose an explicit profile, and use `appstrate api` when the REST operation has no
+dedicated command.
 
-Ne pas mélanger les preuves : une lecture par MCP confirme la cible MCP, tandis qu’une lecture avec `appstrate -p PROFILE` confirme la cible CLI. Vérifier de nouveau la cible dans l’interface qui exécutera la mutation.
+Do not mix evidence. An MCP read confirms the MCP target, while a read through
+`appstrate -p PROFILE` confirms the CLI target. Recheck the target in the interface that will perform
+the mutation.
 
-### 6. Configurer Appstrate sans exposer les secrets
+### 6. Configure Appstrate without exposing secrets
 
-Ne jamais afficher un client secret, un code de vérification, un jeton d’accès ou un jeton de rafraîchissement dans les sorties.
+Never display a client secret, verification code, access token, or refresh token in output.
 
-Réutiliser un secret présent dans un fichier d’environnement protégé sans le recopier dans le chat, Git, un manifeste ou un document. Utiliser un fichier temporaire protégé ou une variable en mémoire, puis effacer son contenu.
+Reuse a secret stored in a protected environment file without copying it into chat, Git, a manifest,
+or a document. Use a protected temporary file or an in-memory variable, then clear its content.
 
-Utiliser le namespace propre à l’organisation cible pour les packages portables, par exemple `@acme/gmail-mcp`. Réserver `@appstrate/*` aux packages système distribués avec le produit. Ne jamais reprendre le namespace d’une autre entreprise comme convention générique.
+Use the target organization's namespace for portable packages, for example `@acme/gmail-mcp`.
+Reserve `@appstrate/*` for system packages distributed with the product. Never reuse another
+company's namespace as a generic convention.
 
-Configurer chaque intégration avec :
+Configure each integration with:
 
-- l’endpoint distant officiel ;
-- `openid`, `email` et les scopes minimaux requis par ses outils ;
-- l’équivalence de `https://www.googleapis.com/auth/userinfo.email` vers `email` ;
-- le client OAuth Web Appstrate et sa callback exacte ;
-- une connexion OAuth distincte par compte utilisateur.
+- the official remote endpoint;
+- `openid`, `email`, and the minimum scopes required by its tools;
+- equivalence between `https://www.googleapis.com/auth/userinfo.email` and `email`;
+- the Appstrate Web OAuth client and its exact callback;
+- a separate OAuth connection for each user account.
 
-### 7. Tester sans écriture
+### 7. Test without writing
 
-Commencer par les outils de lecture indiqués dans la référence. Ne créer, modifier, envoyer, déplacer ou supprimer aucune donnée pendant un test de connexion.
+Begin with the read operations listed in the reference. Do not create, modify, send, move, or delete
+Google data during a connection test.
 
-Pour un run Appstrate, vérifier les deux niveaux :
+For an Appstrate run, verify both levels:
 
 ```text
 status = success
 output.success = true
 ```
 
-Un run terminé techniquement peut contenir un échec fonctionnel dans sa sortie. Conserver l’identifiant du run et un résumé non sensible du résultat.
+A technically completed run can contain a functional failure in its output. Retain the run identifier
+and a non-sensitive summary of the result.
 
-### 8. Diagnostiquer par couche
+### 8. Diagnose by layer
 
-Classifier chaque erreur avant de corriger : service désactivé, programme Preview, IAM, OAuth, scope, configuration Chat, package Appstrate ou outil distant. Lire l’erreur amont et ne pas compenser une couche avec une permission sur une autre.
+Classify each error before correcting it: disabled service, Preview program, IAM, OAuth, scope, Chat
+configuration, Appstrate package, or remote tool. Read the upstream error and do not compensate for
+one layer with a permission on another.
 
-Après correction, relancer d’abord un seul outil de lecture. Étendre ensuite la validation aux autres produits et instances.
+After correcting the issue, rerun one read-only operation first. Then expand validation to other
+products and instances.
 
-## Critères de fin
+## Completion criteria
 
-Terminer seulement lorsque :
+Finish only when:
 
-- le compte et le projet cibles sont confirmés ;
-- les services demandés sont activés ;
-- l’accès IAM est vérifié ;
-- les connexions OAuth sont établies avec les scopes attendus ;
-- chaque produit demandé passe un test en lecture seule avec les deux statuts de succès ;
-- les étapes encore humaines ou les changements système non déployés sont signalés clairement.
+- the target account and project are confirmed;
+- requested services are enabled;
+- IAM access is verified;
+- OAuth connections exist with the expected scopes;
+- every requested product passes a read-only test with both success statuses;
+- remaining human steps and undeployed system changes are clearly reported.

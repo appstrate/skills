@@ -99,7 +99,7 @@ detect_agent() {
     return
   fi
 
-  # Multiple — ask
+  # Multiple: ask
   echo "Multiple coding agents detected: $found" >&2
   echo "Pick one by re-running with an explicit flag:" >&2
   for a in $found; do echo "  --$a" >&2; done

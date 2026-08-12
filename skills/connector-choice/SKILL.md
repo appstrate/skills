@@ -1,55 +1,52 @@
 ---
 name: connector-choice
-description: Choisir comment connecter un service à un agent. Charge ce guide quand plusieurs connecteurs ou modes d'accès sont possibles, ou quand aucun connecteur adéquat n'est installé. Il arbitre friction, couverture et sécurité à partir du catalogue vivant.
+description: Choose how an agent should connect to a service. Load this guide when multiple connectors or access modes are plausible, or when no adequate connector is installed. It compares live candidates by required coverage, connection effort, provenance, and least privilege.
 ---
 
-# Choisir un connecteur
+# Choose a connector
 
-Choisis le chemin d'accès qui couvre le besoin réel avec le moins de configuration et de privilèges
-pour l'utilisateur. Le catalogue et les descriptions d'opérations courantes possèdent les détails
-techniques. Ce guide possède l'arbitrage.
+Select the access path that covers the real requirement with the least configuration and privilege.
+The live catalog owns technical details. This guide owns the decision.
 
-Quand ce guide recommande une autre skill, résous son nom dans le catalogue réellement accessible.
-Ne suppose pas qu'elle est fournie par défaut ou qu'elle appartient au scope `@appstrate`.
+When this guide recommends another skill, resolve its unscoped name in the accessible skill catalog.
+Do not assume that it is installed by default or belongs to the `@appstrate` scope.
 
-## 1. Nommer le besoin
+## 1. Define the requirement
 
-Liste les actions requises, les données lues ou écrites, le compte concerné et la fréquence. Sépare
-les prérequis indispensables des capacités seulement confortables. Un connecteur qui couvre neuf
-actions sur dix ne convient pas si la dixième porte le résultat attendu.
+List the required actions, data read or written, account, and frequency. Separate mandatory
+capabilities from conveniences. A connector that covers nine actions out of ten still fails when the
+tenth action produces the required outcome.
 
-Cette étape est terminée lorsque chaque capacité indispensable peut être testée contre une candidate.
+This step is complete when every mandatory capability can be tested against a candidate.
 
-## 2. Comparer les candidates vivantes
+## 2. Compare live candidates
 
-Découvre les intégrations disponibles, puis décris les candidates plausibles. Évalue dans cet ordre :
+Discover available integrations, then describe the plausible candidates. Evaluate them in this order:
 
-1. couverture des actions indispensables ;
-2. état déjà connecté ou activé pour l'application ;
-3. permissions et destinations réellement exposées ;
-4. effort demandé à l'utilisateur pour connecter et maintenir l'accès ;
-5. provenance et maintenance du connecteur.
+1. coverage of mandatory actions;
+2. connection or activation state for the application;
+3. permissions and destinations actually exposed;
+4. user effort to connect and maintain access;
+5. connector provenance and maintenance.
 
-Quand une intégration MCP distante maintenue par le fournisseur couvre le besoin, préfère-la à une
-intégration qui oblige l'utilisateur à gérer sa propre application développeur. Une intégration API
-reste préférable si elle possède une capacité indispensable absente de la variante MCP, ou si son
-périmètre de permissions est nettement plus adapté. Le nom du package ne constitue jamais une preuve
-de son mode d'accès ou de ses capacités.
+Prefer a provider-maintained remote MCP integration when it covers the requirement and avoids a
+customer-managed developer application. Prefer an API integration when it exposes a mandatory
+capability missing from MCP or offers a materially better permission boundary. A package name is not
+proof of transport, capabilities, or trust.
 
-Cette étape est terminée lorsqu'une candidate domine sur les capacités indispensables et qu'aucune
-différence restante ne changerait le choix.
+This step is complete when one candidate dominates on mandatory capabilities and no unresolved
+difference would change the choice.
 
-## 3. Décider ou faire choisir
+## 3. Decide or ask
 
-Choisis directement quand une candidate domine clairement. Présente au plus deux options lorsque le
-choix dépend d'une préférence humaine, par exemple rapidité de connexion contre couverture plus large.
-Pour chaque option, nomme le compromis concret et recommande-en une.
+Choose directly when one candidate clearly dominates. Present at most two options when the answer
+depends on a human preference, such as faster connection versus broader coverage. State the concrete
+tradeoff and recommend one.
 
-Déclenche ensuite le parcours de connexion décrit par le MCP. Les secrets sont saisis dans la surface
-de connexion hébergée prévue à cet effet. Si aucun connecteur adéquat n'existe, formule le manque comme
-un besoin de package distinct. Charge un guide d'authoring spécialisé seulement s'il est réellement
-présent dans le catalogue de skills accessible. Sinon, propose ce chantier séparément sans inventer de
-guide, d'opération ou de capacité.
+Then follow the connection workflow exposed by Appstrate. Enter secrets only in the hosted connection
+surface. If no connector fits, define the gap as a separate package requirement. Load an authoring
+guide only when it exists in the accessible skill catalog. Otherwise propose the package work without
+inventing a guide, operation, or capability.
 
-Le choix est terminé lorsque le connecteur retenu est nommé avec sa justification, ou lorsqu'un choix
-utilisateur précis ou un manque de capacité bloque la suite.
+The decision is complete when the selected connector and rationale are explicit, or when a precise
+human decision or missing capability blocks the next step.

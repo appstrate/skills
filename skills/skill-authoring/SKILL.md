@@ -1,185 +1,173 @@
 ---
 name: skill-authoring
-description: Créer ou améliorer une skill de méthode appartenant à l'organisation. Charge ce guide quand une méthode manque, déclenche mal, guide mal l'exécution ou doit être simplifiée, y compris quand agent-authoring lui délègue cette branche. Il contient des méthodes de référence à lire seulement lorsqu'elles correspondent au besoin.
+description: Create or improve an organization-owned method skill. Load this guide when a method is missing, triggers incorrectly, guides execution poorly, or must be simplified, including when agent-authoring delegates this branch. It contains reference methods to read only when they match the need.
 ---
 
-# Créer ou améliorer une skill de méthode
+# Create or improve a method skill
 
-Utilise ce guide après avoir confirmé que le besoin appartient à une méthode réutilisable. Si la
-demande porte sur l'assemblage, les intégrations, le prompt ou le déclenchement d'un agent, rends cette
-branche à `agent-authoring`.
+Use this guide after confirming that the need belongs to a reusable method. If the request concerns
+agent assembly, integrations, its prompt, or its trigger, return that branch to `agent-authoring`.
 
-Le résultat attendu est une méthode que plusieurs agents de l'organisation peuvent partager. Préserve
-une bonne méthode existante au lieu de créer une variante concurrente.
+The expected result is a method that several organizational agents can share. Preserve a good
+existing method instead of creating a competing variant.
 
-## Source de vérité et interface
+## Source of truth and interface
 
-L'instance Appstrate ciblée possède les opérations, paramètres et schémas courants. Préfère le MCP
-Appstrate lorsqu'il est connecté à la bonne organisation. Sinon, utilise un profil CLI explicite et
-son accès API authentifié. Découvre puis décris l'opération adaptée avant chaque lecture ou mutation.
-Ne recopie pas ici ses noms de champs, ses formes de body, ses sélecteurs de version ou ses codes
-d'erreur.
+The target Appstrate instance owns current operations, parameters, and schemas. Prefer the Appstrate
+MCP when it is connected to the correct organization. Otherwise, use an explicit CLI profile and its
+authenticated API access. Discover and describe the appropriate operation before each read or
+mutation. Do not reproduce field names, request-body shapes, version selectors, or error codes here.
 
-Cette skill possède la méthode d'écriture et d'évaluation : les deux lecteurs des descriptions, la
-structure du `SKILL.md`, les critères de déclenchement et la comparaison contrôlée avant publication.
+This skill owns the writing and evaluation method: the two audiences for descriptions, `SKILL.md`
+structure, trigger criteria, and controlled comparison before publication.
 
-Lorsque ce guide appelle `agent-authoring`, résous la skill accessible par son nom non scopé. Dans
-Appstrate, conserve son identifiant canonique `@scope/name`. Dans un agent de coding, utilise le
-catalogue local. Si elle manque, signale la dépendance au lieu de supposer un scope.
+When this guide calls `agent-authoring`, resolve the accessible skill by its unscoped name. In
+Appstrate, retain its canonical `@scope/name` identifier. In a coding agent, use the local catalog. If
+it is missing, report the dependency instead of assuming a scope.
 
-## Bibliothèque de méthodes à charger au besoin
+## Reference method library
 
-Cette bibliothèque sert de point de départ lorsqu'aucune skill de l'organisation ne possède encore
-la méthode. Après avoir vérifié les skills existantes, choisis la branche qui correspond au besoin et
-lis uniquement le fichier lié. Découvre et décris d'abord l'opération courante de lecture d'un
-fichier de package, puis demande le chemin exact indiqué par le lien. Ne charge pas l'index complet
-des fichiers ni toute la bibliothèque. Si aucune branche ne correspond, construis la méthode depuis
-le besoin observé.
+Use this library as a starting point when no organizational skill owns the method yet. After checking
+existing skills, choose the branch that matches the need and read only the linked file. First discover
+and describe the current operation for reading a package file, then request the exact path in the
+link. Do not load the full file index or the entire library. If no branch matches, derive the method
+from the observed need.
 
-- Revoir un diff ou une pull request : [revue de code](references/code-review.md)
-- Rédiger un contenu publiable ou un message marketing : [rédaction de contenu](references/content-writing.md)
-- Enrichir un lead ou tenir le pipeline à jour : [mise à jour CRM](references/crm-update.md)
-- Qualifier un compte ou préparer une vue prospect : [recherche client](references/customer-research.md)
-- Interpréter un tableau ou un export chiffré : [analyse de données](references/data-analysis.md)
-- Extraire des champs d'un document : [extraction documentaire](references/doc-extraction.md)
-- Trier des emails et préparer des réponses : [réponse email](references/email-reply.md)
-- Résumer seulement les changements depuis le dernier passage : [digest incrémental](references/incremental-digest.md)
-- Préparer un rendez-vous à partir de plusieurs sources : [préparation de réunion](references/meeting-prep.md)
-- Transformer une réunion en décisions et actions : [compte-rendu et actions](references/minutes-actions.md)
-- Répondre depuis une base documentaire avec citations : [réponse sourcée](references/sourced-rag.md)
-- Rechercher sur le web avec des sources vérifiables : [recherche web sourcée](references/sourced-research.md)
-- Produire un état d'avancement depuis des tickets et changements : [rapport de sprint](references/sprint-report.md)
-- Classer des demandes entrantes et décider d'une escalade : [triage et sentiment](references/triage-sentiment.md)
+- Review a diff or pull request: [code review](references/code-review.md)
+- Write publishable content or a marketing message: [content writing](references/content-writing.md)
+- Enrich a lead or maintain a pipeline: [CRM update](references/crm-update.md)
+- Qualify an account or prepare a prospect view: [customer research](references/customer-research.md)
+- Interpret a table or numeric export: [data analysis](references/data-analysis.md)
+- Extract fields from a document: [document extraction](references/doc-extraction.md)
+- Triage emails and prepare responses: [email reply](references/email-reply.md)
+- Summarize only changes since the previous run: [incremental digest](references/incremental-digest.md)
+- Prepare a meeting from several sources: [meeting preparation](references/meeting-prep.md)
+- Turn a meeting into decisions and actions: [minutes and actions](references/minutes-actions.md)
+- Answer from a document base with citations: [sourced answer](references/sourced-rag.md)
+- Research the web with verifiable sources: [sourced web research](references/sourced-research.md)
+- Produce progress status from tickets and changes: [sprint report](references/sprint-report.md)
+- Classify incoming requests and decide escalation: [triage and sentiment](references/triage-sentiment.md)
 
-Une référence est du matériau d'authoring, pas une skill attachable. Adapte son contenu au contexte de
-l'organisation, retire les hypothèses qui ne sont pas satisfaites, ajoute le déclenchement exigé plus
-bas, puis matérialise une skill sous le scope de l'organisation. La référence ne devient jamais une
-dépendance de l'agent.
+A reference is authoring material, not an attachable skill. Adapt it to the organization's context,
+remove unsupported assumptions, add the trigger checks required below, and materialize a skill under
+the organization's scope. The reference never becomes an agent dependency.
 
-## Processus
+## Process
 
-### 1. Choisir entre création et amélioration
+### 1. Choose creation or improvement
 
-Cherche une skill de l'organisation qui possède déjà le même besoin conceptuel. Lis les candidates
-ambiguës avant de trancher.
+Look for an organizational skill that already owns the same conceptual need. Read ambiguous
+candidates before deciding.
 
-- Améliore l'existante quand son intention et sa frontière correspondent.
-- Crée une nouvelle skill seulement quand aucune méthode n'a le même propriétaire conceptuel.
-- Garde le nom stable pendant une amélioration. Un défaut ne justifie pas un suffixe ou un doublon.
+- Improve the existing skill when its intent and boundary match.
+- Create a new skill only when no method has the same conceptual owner.
+- Keep the name stable during an improvement. A defect does not justify a suffix or duplicate.
 
-Si aucune skill existante ne convient, consulte ensuite une seule branche pertinente de la
-bibliothèque ci-dessus. Une référence accélère la création, mais l'objectif réel, les accès
-disponibles et les cas observés restent la source de vérité.
+If no existing skill fits, consult one relevant branch of the library above. A reference accelerates
+creation, but the actual objective, available access, and observed cases remain the source of truth.
 
-Avant de modifier une skill, découvre les opérations courantes qui permettent de lire son draft, ses
-versions publiées et les fichiers du package. Lis tous les fichiers pertinents, pas seulement le
-contenu principal. Identifie la base publiée, les changements déjà présents dans le draft et le
-mécanisme de concurrence demandé par l'opération de mise à jour.
+Before modifying a skill, discover current operations for reading its draft, published versions, and
+package files. Read all relevant files, not only the main content. Identify the published baseline,
+changes already present in the draft, and the concurrency mechanism required by the update operation.
 
-Cette étape est terminée lorsque tu peux nommer la règle défaillante, sa source actuelle et les
-consommateurs affectés.
+This step is complete when you can name the failing rule, its current source, and affected consumers.
 
-### 2. Garder uniquement la méthode
+### 2. Keep only the method
 
-Écris les critères, heuristiques, arbitrages, étapes métier, cas limites et formes de restitution qui
-resserviraient dans plusieurs agents.
+Write criteria, heuristics, tradeoffs, business steps, edge cases, and output forms that several agents
+could reuse.
 
-Écarte les connecteurs, canaux, identifiants, fréquences, limites de volume et correspondances de
-champs propres à une instance. `agent-authoring` possède ces décisions.
+Exclude connectors, channels, identifiers, cadence, volume limits, and field mappings specific to one
+instance. `agent-authoring` owns those decisions.
 
-Quand la méthode suppose une capacité de runtime, exprime le besoin sémantique et son comportement de
-repli, par exemple conserver un état durable entre deux passages ou publier un document. L'agent
-traduira ce besoin avec les capacités que son schéma courant expose.
+When the method assumes a runtime capability, express the semantic need and fallback behavior, such as
+preserving durable state between runs or publishing a document. The agent maps that need to
+capabilities exposed by its current schema.
 
-### 3. Écrire pour les deux lecteurs
+### 3. Write for both readers
 
-Une skill créée dans l'organisation présente deux descriptions qui provoquent deux décisions
-différentes :
+A skill created in the organization has two descriptions that drive two different decisions:
 
-- `manifest.description` est lue par le chat qui choisit une dépendance pour un agent. Décris le
-  besoin couvert, la frontière avec les méthodes voisines et le geste de sélection attendu.
-- la `description` du frontmatter du `SKILL.md` est lue par l'agent au runtime. Décris les situations
-  où l'agent doit ouvrir cette méthode pour exécuter sa tâche.
+- `manifest.description` is read by the chat when choosing an agent dependency. Describe the covered
+  need, its boundary with neighboring methods, and the expected selection action.
+- the `SKILL.md` frontmatter `description` is read by the runtime agent. Describe the situations in
+  which the agent should open this method to perform its task.
 
-Écris-les séparément. Le corps ne peut pas réparer une description qui déclenche le mauvais geste.
+Write them separately. The body cannot repair a description that triggers the wrong action.
 
-Le frontmatter contient au minimum le nom non scopé de la skill et sa description destinée à l'agent.
-Le nom doit correspondre au dernier segment du package matérialisé par le runtime.
+Frontmatter includes at least the skill's unscoped name and its agent-facing description. The name
+must match the last segment of the package materialized by the runtime.
 
-### 4. Écrire une méthode exécutable
+### 4. Write an executable method
 
-Organise le corps dans l'ordre où l'agent doit travailler :
+Organize the body in execution order:
 
-1. objectif concret ;
-2. étapes avec une condition de fin observable ;
-3. prérequis sémantiques que l'agent devra satisfaire ;
-4. règles et cas limites au point où ils deviennent utiles ;
-5. exemple ou schéma seulement s'il change le comportement.
+1. concrete objective;
+2. steps with an observable completion condition;
+3. semantic prerequisites the agent must satisfy;
+4. rules and edge cases at the point where they become useful;
+5. an example or schema only when it changes behavior.
 
-Garde dans le fichier principal ce qui est requis à chaque exécution. Place une référence volumineuse
-ou une variante rare dans un fichier séparé seulement si elle fait partie du package et si le corps
-indique précisément quand la lire.
+Keep material required on every run in the main file. Put a large reference or rare variant in a
+separate file only when it belongs to the package and the body says exactly when to read it.
 
-Formule le comportement cible positivement. Lorsqu'un garde-fou est indispensable, place l'issue de
-secours autorisée dans la même règle. Exige des critères vérifiables et exhaustifs plutôt que des
-adverbes comme « soigneusement » ou « correctement ».
+State target behavior positively. When a safeguard is necessary, include the authorized fallback in
+the same rule. Require verifiable and exhaustive criteria instead of adverbs such as "carefully" or
+"correctly."
 
-Supprime les conseils que le modèle applique déjà, les branches périmées et les reformulations d'une
-même règle. Lors d'une amélioration, change la plus petite surface qui explique l'échec observé et
-préserve le reste.
+Remove advice the model already follows, obsolete branches, and repeated versions of one rule. During
+an improvement, change the smallest surface that explains the observed failure and preserve the rest.
 
-### 5. Vérifier le déclenchement
+### 5. Verify triggering
 
-Écris deux requêtes réalistes qui doivent sélectionner la skill et un quasi-cas qui partage son
-vocabulaire sans demander la même méthode. Conserve ces trois cas dans une section `Déclenchement` du
-`SKILL.md` afin qu'ils restent versionnés avec l'artefact.
+Write two realistic requests that should select the skill and one near-miss that shares its vocabulary
+without requesting the same method. Keep all three in a `Triggering` section of the `SKILL.md` so they
+remain versioned with the artifact.
 
-Dans des conversations vierges, vérifie que les cas positifs chargent la skill et que le quasi-cas ne
-la charge pas. Si la sélection est mauvaise, corrige les descriptions. Si la sélection est bonne mais
-l'exécution échoue, corrige le corps.
+In fresh conversations, verify that positive cases load the skill and the near-miss does not. If
+selection is wrong, correct the descriptions. If selection is right but execution fails, correct the
+body.
 
-Une vérification où la méthode ou le résultat attendu était déjà présent dans le contexte ne prouve
-pas le déclenchement.
+A check in which the method or expected result was already present in context does not prove
+triggering.
 
-## Boucle d'amélioration
+## Improvement loop
 
-Applique cette boucle avant de proposer la publication d'une modification :
+Apply this loop before proposing publication of a change:
 
-1. **Reproduire.** Choisis les cas qui exposent le défaut et définis le signal attendu avant de
-   modifier le draft.
-2. **Modifier.** Mets à jour le draft complet avec le mécanisme de concurrence décrit par l'opération
-   courante. Si le draft a changé, relis et réapplique la modification au lieu d'écraser le travail
-   concurrent.
-3. **Comparer.** Lance deux runs adjacents avec le même agent de test, le même prompt, la même entrée
-   et la même configuration. Seule la sélection de cette dépendance change : version publiée dans le
-   premier run, draft dans le second. Utilise le mécanisme de sélection propre au run que l'outil MCP
-   décrit au moment du test.
-4. **Observer.** Lis les ressources et logs des deux runs. Vérifie dans leur snapshot de dépendances
-   résolues que chacun a réellement chargé la variante annoncée. Compare ensuite le résultat, les
-   erreurs, les reprises, le coût et chaque critère défini avant la modification.
-5. **Décider.** Garde le draft seulement s'il améliore les cas positifs sans déclencher le quasi-cas
-   ni dégrader une contrainte existante.
+1. **Reproduce.** Choose cases that expose the defect and define the expected signal before changing
+   the draft.
+2. **Modify.** Update the complete draft with the concurrency mechanism described by the current
+   operation. If the draft changed, reread and reapply the change instead of overwriting concurrent
+   work.
+3. **Compare.** Run two adjacent tests with the same test agent, prompt, input, and configuration. Only
+   this dependency's selection changes: published version in the first run, draft in the second. Use
+   the run-specific selection mechanism described by the MCP tool during the test.
+4. **Observe.** Read both run resources and logs. Confirm in their resolved dependency snapshots that
+   each loaded the stated variant. Then compare output, errors, retries, cost, and every criterion
+   defined before modification.
+5. **Decide.** Keep the draft only if it improves positive cases without triggering the near-miss or
+   degrading an existing constraint.
 
-Lorsqu'aucune version publiée n'existe, compare un run sans la nouvelle skill au même run avec le
-draft. Une sélection demandée dans les arguments mais absente du snapshot résolu ne constitue pas une
-preuve.
+When no published version exists, compare a run without the new skill to the same run with the draft.
+A requested selection absent from the resolved snapshot is not proof.
 
-Présente les ids des runs, les différences observées et les incertitudes. Une exécution réussie ne
-publie jamais automatiquement la méthode. La publication reste une décision humaine séparée.
+Present run IDs, observed differences, and uncertainties. A successful run never publishes the
+method automatically. Publication remains a separate human decision.
 
-## Contrôle final
+## Final check
 
-Considère le draft prêt à être proposé seulement si :
+Consider the draft ready to propose only when:
 
-- aucune skill existante ne possède déjà le même besoin, ou l'existante a été améliorée ;
-- tous les fichiers pertinents et la base publiée ont été lus ;
-- chaque instruction appartient à la méthode, pas à une instance d'agent ;
-- les deux descriptions provoquent le bon geste chez leur lecteur ;
-- chaque étape possède une condition de fin observable ;
-- les prérequis sont exprimés comme besoins sémantiques avec un repli ;
-- deux cas positifs et un quasi-cas ont été vérifiés dans des contextes vierges ;
-- en amélioration, la comparaison ne change qu'une dépendance et les snapshots résolus prouvent la
-  sélection ;
-- chaque ligne restante change une décision ou une action de l'agent.
+- no existing skill already owns the need, or the existing one was improved;
+- all relevant files and the published baseline were read;
+- every instruction belongs to the method, not an agent instance;
+- both descriptions drive the correct action for their reader;
+- every step has an observable completion condition;
+- prerequisites are semantic needs with a fallback;
+- two positive cases and one near-miss were tested in fresh contexts;
+- for an improvement, the comparison changes only one dependency and resolved snapshots prove its
+  selection;
+- every remaining line changes an agent decision or action.
 
-Si l'une de ces preuves manque, garde le draft non publié et nomme la vérification restante.
+If any proof is missing, keep the draft unpublished and name the remaining verification.

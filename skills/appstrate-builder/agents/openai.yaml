@@ -1,4 +1,4 @@
 interface:
   display_name: "Appstrate Builder"
-  short_description: "Déployer Appstrate pour une organisation"
-  default_prompt: "Utilise appstrate-builder pour auditer, configurer et déployer cette organisation Appstrate."
+  short_description: "Deploy Appstrate for an organization"
+  default_prompt: "Use $appstrate-builder to audit, configure, and deploy this Appstrate organization."

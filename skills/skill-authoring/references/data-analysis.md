@@ -1,44 +1,43 @@
-# Analyse de données tabulaires
+# Tabular data analysis
 
-## Objectif
+## Objective
 
-Analyser un jeu de données tabulaire et en tirer des enseignements actionnables : indicateurs clés, tendances, recommandations.
+Analyze tabular data and derive actionable findings, including key indicators, trends, and recommendations.
 
-## Méthode
+## Method
 
-1. **Comprendre les données** : colonnes, types (catégorie, date, mesure), grain d'une ligne. Une question précise prime ; sinon, mène une analyse exploratoire orientée par l'objectif s'il est précisé.
-2. **Calculer** : totaux, moyennes, min/max, répartitions, évolutions dans le temps, segments qui se détachent et valeurs aberrantes. Raisonne uniquement sur les données fournies. Pour un fichier réel, utilise la capacité courante de lecture et de calcul tabulaire exposée à l'agent plutôt qu'une transcription manuelle.
-3. **Restituer** : synthèse, indicateurs clés avec valeur, unité et période, tendances, puis recommandations priorisées. Si l'agent ne possède pas de capacité de rendu, décris les graphiques pertinents et ce qu'ils montreraient.
+1. **Understand**: identify columns, types, and row grain. Prioritize a precise question; otherwise perform exploratory analysis guided by the stated objective.
+2. **Calculate**: compute totals, averages, minimums, maximums, distributions, time trends, standout segments, and outliers. Use only provided data and current tabular tools rather than manual transcription.
+3. **Report**: provide a summary, key indicators with value, unit, and period, trends, then prioritized recommendations. If rendering is unavailable, describe useful charts and what they would show.
 
-## Règles
+## Rules
 
-- Sépare les faits (ce que disent les données) de l'interprétation (hypothèses).
-- Ne fabrique aucun chiffre absent du jeu de données ; dis-le si une donnée manque pour répondre à la question.
-- Données illisibles ou trop incomplètes : dis-le, restitue ce qui est exploitable plutôt que d'inventer.
+- Separate facts in the data from interpretive hypotheses.
+- Never invent a missing number. State when data is insufficient for the question.
+- For unreadable or severely incomplete data, explain the limitation and return only usable findings.
 
-## Profilage avant calcul
+## Profile before calculating
 
-Établis le grain d'une ligne, la période couverte, l'unité de chaque mesure, le fuseau des dates et la
-clé qui définit un doublon. Compte les lignes, valeurs manquantes, doublons et valeurs hors domaine.
-Une agrégation n'est interprétable que si son dénominateur et ses exclusions sont explicites.
+Establish row grain, covered period, measure units, date timezone, and the key that defines a
+duplicate. Count rows, missing values, duplicates, and out-of-domain values. An aggregation is
+interpretable only when its denominator and exclusions are explicit.
 
-Compare les segments sur une mesure cohérente. Un total répond au volume, un taux répond à la
-proportion, une médiane résiste mieux aux extrêmes qu'une moyenne. Pour une évolution, compare des
-périodes de même durée et signale une période partielle.
+Compare segments with a consistent measure. A total answers volume, a rate answers proportion, and a
+median resists extremes better than a mean. Compare equal-duration periods for trends and flag partial
+periods.
 
-## Contrat de sortie
+## Output contract
 
 ```text
-Périmètre : source, grain, période, lignes retenues/exclues
-Qualité : manquants, doublons, anomalies et impact
-Indicateurs : valeur, unité, période, dénominateur
-Constats : observation chiffrée puis interprétation séparée
-Recommandations : action, signal qui la justifie, limite
+Scope: source, grain, period, included and excluded rows
+Quality: missing values, duplicates, anomalies, and impact
+Indicators: value, unit, period, denominator
+Findings: numeric observation followed by separate interpretation
+Recommendations: action, supporting signal, limitation
 ```
 
-Pour chaque constat, garde le calcul reproductible sous une forme compacte, par exemple `312 / 1 248
-= 25,0 %`. Ne qualifie une valeur d'anormale qu'avec une règle nommée, une comparaison historique ou
-un seuil fourni par le métier.
+Keep a compact reproducible calculation for each finding, for example `312 / 1,248 = 25.0%`. Call a
+value anomalous only with a named rule, historical comparison, or business-provided threshold.
 
-L'analyse est terminée lorsque les chiffres clés peuvent être recalculés depuis les données retenues,
-les limites sont visibles et aucune recommandation n'est présentée comme un fait.
+Analysis is complete when key figures can be recalculated from retained data, limitations are visible,
+and no recommendation is presented as fact.

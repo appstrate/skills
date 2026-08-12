@@ -1,50 +1,50 @@
-# Digest incrémental
+# Incremental digest
 
-## Objectif
+## Objective
 
-Résumer périodiquement ce qui est nouveau ou a changé depuis le dernier passage, jamais l'intégralité de la source à chaque fois.
+Periodically summarize only what is new or changed since the previous run, never the entire source.
 
-## Méthode
+## Method
 
-1. **État précédent** : lis le `## Checkpoint` s'il existe (date/référence du dernier passage). S'il est absent, c'est le premier run : traite une fenêtre raisonnable par défaut (ex. 24-48h) et dis-le.
-2. **Delta** : ne remonte que ce qui est postérieur au checkpoint : nouveaux messages, changements de statut, nouveaux documents. Filtre le bruit (mises à jour mineures, doublons déjà signalés).
-3. **Restitution** : un digest court, priorisé (le plus important en premier), jamais une liste exhaustive brute.
-4. **Mémoire** : avant de terminer, utilise la capacité courante de mémoire durable exposée à l'agent pour enregistrer la date ou la référence de ce passage. Le prochain run doit pouvoir repartir de ce checkpoint.
+1. **Previous state**: read `## Checkpoint` when present. On the first run, use a reasonable default window such as 24 to 48 hours and disclose it.
+2. **Delta**: return only items after the checkpoint, such as new messages, status changes, or documents. Filter minor updates and already reported duplicates.
+3. **Report**: produce a short prioritized digest, not an exhaustive raw list.
+4. **Memory**: before finishing, use the agent's current durable-memory capability to save the date or source reference. The next run must resume from this checkpoint.
 
-## Prérequis sémantique
+## Semantic prerequisite
 
-Cette méthode exige une mémoire durable accessible entre les runs. L'agent doit traduire ce besoin avec la capacité que son contrat courant expose. Sans elle, produis un digest ponctuel et annonce explicitement que le prochain passage ne pourra pas calculer un delta fiable.
+This method requires durable memory across runs. The agent maps this need to a capability in its
+current contract. Without it, produce a one-time digest and explicitly state that the next run cannot
+calculate a reliable delta.
 
-## Règles
+## Rules
 
-- Ne jamais re-signaler un élément déjà couvert dans un digest précédent.
-- Rien de nouveau depuis le dernier passage : dis-le brièvement plutôt que de forcer un contenu.
-- Le digest doit rester lisible en moins d'une minute : trier, ne pas tout lister.
+- Never report an item already covered by a previous digest.
+- When nothing is new, say so briefly rather than forcing content.
+- Keep the digest readable in under a minute by prioritizing instead of listing everything.
 
-## Checkpoint robuste
+## Robust checkpoint
 
-Le checkpoint contient un curseur de source quand elle en fournit un, sinon une date UTC plus les
-identifiants déjà vus à la frontière. Relis une petite zone de recouvrement autour du curseur afin de
-capturer les arrivées tardives, puis déduplique par identifiant stable. Une date seule ne suffit pas
-si plusieurs événements peuvent partager le même instant.
+Store a source cursor when available, otherwise store a UTC timestamp plus identifiers already seen
+at the boundary. Reread a small overlap around the cursor to catch late arrivals, then deduplicate by
+stable identifier. A timestamp alone is insufficient when events can share an instant.
 
-Avance le checkpoint seulement après la production réussie du digest. Un run interrompu conserve
-l'ancien état afin que les éléments non livrés soient repris au prochain passage.
+Advance the checkpoint only after successful digest production. An interrupted run retains the old
+state so undelivered items return in the next run.
 
-## Priorisation et sortie
+## Prioritization and output
 
-Classe le delta par impact et action requise : blocage, décision, changement important, information.
-Regroupe les notifications qui décrivent le même événement et limite le détail des éléments purement
-informatifs.
+Order the delta by impact and required action: blocker, decision, important change, information. Group
+notifications describing the same event and limit detail for informational items.
 
 ```json
 {
-  "window": { "from": "curseur précédent", "to": "curseur observé" },
+  "window": { "from": "previous cursor", "to": "observed cursor" },
   "highlights": [{ "kind": "decision", "summary": "...", "source_id": "..." }],
   "counts": { "new": 0, "changed": 0, "ignored_duplicates": 0 },
   "next_checkpoint": { "cursor": "...", "boundary_ids": [] }
 }
 ```
 
-La méthode est terminée lorsque tous les événements de la fenêtre ont été classés comme retenus ou
-filtrés, aucun identifiant retenu n'a déjà été livré et le nouveau checkpoint peut reprendre sans trou.
+The method is complete when every event in the window is retained or filtered, no retained identifier
+was previously delivered, and the new checkpoint can resume without gaps.

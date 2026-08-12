@@ -1,29 +1,28 @@
-# Portabilité des skills
+# Skill portability
 
-Une skill portable contient un `SKILL.md` avec un nom non scopé et une description de déclenchement.
-Ses liens relatifs restent dans son dossier. Elle ne suppose ni un scope d'organisation, ni un
-identifiant d'application, ni une opération expérimentale.
+A portable skill contains a `SKILL.md` with an unscoped name and a triggering description. Its
+relative links remain inside its directory. It assumes no organizational scope, application
+identifier, or experimental operation.
 
-## Dans un agent de coding
+## In a coding agent
 
-Installer le dossier complet dans le catalogue de skills reconnu par l'agent. Les fichiers de
-référence et scripts restent relatifs au `SKILL.md`. Vérifier la détection avec une requête de
-déclenchement représentative.
+Install the complete directory in the agent's recognized skill catalog. Keep references and scripts
+relative to `SKILL.md`. Verify discovery with a representative trigger request.
 
-## Dans Appstrate
+## In Appstrate
 
-Créer une archive par skill avec `SKILL.md` à la racine. Importer l'archive dans l'organisation cible,
-puis relever l'identifiant `@scope/name` attribué. Affecter la skill aux agents ou applications qui en
-ont besoin selon les opérations exposées par l'instance.
+Create one archive per skill with `SKILL.md` at its root. Import the archive into the target
+organization, then record its assigned `@scope/name` identifier. Assign the skill to agents or
+applications that need it through operations exposed by the instance.
 
-## Entre organisations
+## Across organizations
 
-Partager les sources ou archives sans secret, jeton, identifiant interne ni configuration propre à
-une entreprise. Chaque organisation importe sous son propre scope et recrée ses connexions. Une skill
-peut décrire un besoin d'accès, mais ne transporte pas les identifiants OAuth ni les autorisations.
+Share sources or archives without secrets, tokens, internal identifiers, or company-specific
+configuration. Each organization imports under its own scope and recreates its connections. A skill
+can describe an access requirement but does not carry OAuth identifiers or grants.
 
-## Skills compagnes
+## Companion skills
 
-Une référence à une autre skill utilise son nom non scopé. Au runtime, résoudre la candidate réellement
-accessible et conserver son identifiant canonique. L'absence d'une skill compagne est une dépendance
-à installer, pas une autorisation d'en inventer le contenu.
+Refer to another skill by its unscoped name. At runtime, resolve the candidate that is actually
+accessible and retain its canonical identifier. A missing companion skill is a dependency to install,
+not permission to invent its content.

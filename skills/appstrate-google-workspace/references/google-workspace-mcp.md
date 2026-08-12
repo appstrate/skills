@@ -1,21 +1,22 @@
-# Référence Google Workspace MCP
+# Google Workspace MCP reference
 
-État vérifié le 12 août 2026. Les serveurs sont encore en Developer Preview. Consulter la documentation officielle avant une nouvelle installation ou après une modification du catalogue Google.
+Status verified on August 12, 2026. These servers are still in Developer Preview. Consult the official
+documentation before a new installation or after Google changes its catalog.
 
-## Produits
+## Products
 
-| Produit | API produit | Service MCP | Endpoint distant | Test de lecture |
+| Product | Product API | MCP service | Remote endpoint | Read test |
 | --- | --- | --- | --- | --- |
 | Gmail | `gmail.googleapis.com` | `gmailmcp.googleapis.com` | `https://gmailmcp.googleapis.com/mcp/v1` | `list_labels` |
-| Drive | `drive.googleapis.com` | `drivemcp.googleapis.com` | `https://drivemcp.googleapis.com/mcp/v1` | `list_recent_files` ou `search_files` |
+| Drive | `drive.googleapis.com` | `drivemcp.googleapis.com` | `https://drivemcp.googleapis.com/mcp/v1` | `list_recent_files` or `search_files` |
 | Docs | `docs.googleapis.com` | `docsmcp.googleapis.com` | `https://docsmcp.googleapis.com/mcp/v1` | `read_doc` |
-| Sheets | `sheets.googleapis.com` | `sheetsmcp.googleapis.com` | `https://sheetsmcp.googleapis.com/mcp/v1` | `get_spreadsheet` ou `get_values` |
+| Sheets | `sheets.googleapis.com` | `sheetsmcp.googleapis.com` | `https://sheetsmcp.googleapis.com/mcp/v1` | `get_spreadsheet` or `get_values` |
 | Slides | `slides.googleapis.com` | `slidesmcp.googleapis.com` | `https://slidesmcp.googleapis.com/mcp/v1` | `read_presentation` |
 | Calendar | `calendar-json.googleapis.com` | `calendarmcp.googleapis.com` | `https://calendarmcp.googleapis.com/mcp/v1` | `list_calendars` |
 | People | `people.googleapis.com` | `people.googleapis.com` | `https://people.googleapis.com/mcp/v1` | `get_user_profile` |
 | Chat | `chat.googleapis.com` | `chatmcp.googleapis.com` | `https://chatmcp.googleapis.com/mcp/v1` | `search_conversations` |
 
-## Activation CLI
+## CLI activation
 
 ```bash
 gcloud services enable \
@@ -37,9 +38,10 @@ gcloud services enable \
   --project="PROJECT_ID"
 ```
 
-## Accès IAM
+## IAM access
 
-Le rôle prédéfini `roles/mcp.toolUser` contient la permission d’appeler les outils MCP. Un rôle plus large, comme Owner, peut déjà la fournir.
+The predefined `roles/mcp.toolUser` role contains permission to call MCP tools. A broader role such as
+Owner may already provide it.
 
 ```bash
 gcloud projects add-iam-policy-binding "PROJECT_ID" \
@@ -48,84 +50,100 @@ gcloud projects add-iam-policy-binding "PROJECT_ID" \
   --condition=None
 ```
 
-Le rôle IAM autorise l’appel du service MCP. Les scopes OAuth autorisent l’accès aux données de l’utilisateur. Le statut d’utilisateur test autorise le compte à franchir l’écran de consentement pendant la phase de test. Ces contrôles sont indépendants.
+The IAM role authorizes calls to the MCP service. OAuth scopes authorize access to user data. Test
+user status allows an account through the consent screen during testing. These controls are
+independent.
 
-## Points humains obligatoires
+## Required human steps
 
-1. Inscription et acceptation au Google Workspace Developer Preview Program.
-2. Acceptation des politiques Google Auth Platform.
-3. Configuration de Branding, Audience, Data Access et des utilisateurs test.
-4. Création ou modification du client OAuth Web et de ses URI de redirection.
-5. Configuration de l’application Google Chat avec les fonctions interactives désactivées.
-6. Consentement OAuth de chaque utilisateur.
+1. Enroll in and accept the Google Workspace Developer Preview Program.
+2. Accept Google Auth Platform policies.
+3. Configure Branding, Audience, Data Access, and test users.
+4. Create or modify the Web OAuth client and its redirect URIs.
+5. Configure the Google Chat application with interactive features disabled.
+6. Complete OAuth consent for every user.
 
-Google indique que les clients OAuth Google classiques ne peuvent pas être créés ou modifiés par programmation. Le client géré par `gcloud iam oauth-clients` appartient à une autre surface IAM et ses scopes pris en charge ne couvrent pas Gmail, Drive ou Calendar.
+Google states that classic Google OAuth clients cannot be created or modified programmatically. A
+client managed through `gcloud iam oauth-clients` belongs to a different IAM surface and its supported
+scopes do not cover Gmail, Drive, or Calendar.
 
-## Diagnostic
+## Diagnosis
 
-| Symptôme | Couche probable | Contrôle |
+| Symptom | Likely layer | Check |
 | --- | --- | --- |
-| `SERVICE_DISABLED` ou HTTP 403 mentionnant une API | Service Usage | Vérifier l’API produit et le service MCP |
-| `permission denied` sur tous les outils | IAM ou Preview | Vérifier l’acceptation du projet et `mcp.tools.call` |
-| `insufficient_scopes` | OAuth ou manifeste | Comparer les scopes accordés et la politique de l’outil |
-| Google renvoie `userinfo.email` | Normalisation du scope | Déclarer qu’il implique `email` dans le manifeste |
-| L’utilisateur ne peut pas consentir | Audience ou utilisateur test | Vérifier Internal, External, Testing et la liste des utilisateurs |
-| Chat échoue alors que les services sont actifs | Configuration Chat | Configurer l’application Chat et désactiver les fonctions interactives |
-| Le run Appstrate est `success`, mais le contrôle échoue | Sortie métier | Vérifier aussi `output.success` et les détails de l’appel amont |
+| `SERVICE_DISABLED` or HTTP 403 naming an API | Service Usage | Check both product API and MCP service |
+| `permission denied` on every tool | IAM or Preview | Check project acceptance and `mcp.tools.call` |
+| `insufficient_scopes` | OAuth or manifest | Compare granted scopes with the tool policy |
+| Google returns `userinfo.email` | Scope normalization | Declare that it implies `email` in the manifest |
+| User cannot grant consent | Audience or test user | Check Internal, External, Testing, and the user list |
+| Chat fails while services are active | Chat configuration | Configure the Chat app and disable interactive features |
+| Appstrate run is `success`, but the check fails | Business output | Also inspect `output.success` and upstream call details |
 
-## Packages Appstrate
+## Appstrate packages
 
-Une entreprise peut publier des packages propres à son organisation avec son propre namespace, par exemple `@acme/gmail-mcp` ou `@acme/google-drive-mcp`. Ces packages d’organisation sont importables immédiatement dans l’organisation concernée et peuvent porter une correction sans attendre une nouvelle version du produit.
+A company can publish organization-owned packages under its own namespace, such as
+`@acme/gmail-mcp` or `@acme/google-drive-mcp`. These packages can be imported immediately into that
+organization and can carry a correction without waiting for a new product release.
 
-Les packages `@appstrate/*` sont distribués avec le système. Une modification de leur source nécessite une fusion puis un déploiement Appstrate avant de devenir la version système d’une instance.
+Packages under `@appstrate/*` are distributed with the system. A source change must be merged and
+Appstrate deployed before it becomes the system version on an instance.
 
-Ne jamais imposer le namespace d’une autre entreprise. Déterminer le slug ou le namespace de l’organisation cible avant de nommer ou construire un package.
+Never impose another company's namespace. Determine the target organization's slug or namespace
+before naming or building a package.
 
-Une nouvelle version d’un package doit déclarer le catalogue réel des outils observé avec `tools/list`, appliquer les scopes minimaux par outil et être validée par le schéma de manifeste avant construction de l’archive AFPS.
+A new package version must declare the actual tool catalog observed through `tools/list`, apply the
+minimum scopes per tool, and pass manifest schema validation before building the AFPS archive.
 
-## Deux interfaces d’administration Appstrate
+## Two Appstrate administration interfaces
 
-### MCP Appstrate
+### Appstrate MCP
 
-Chaque organisation possède un endpoint Streamable HTTP :
+Every organization has a Streamable HTTP endpoint:
 
 ```text
 https://INSTANCE/api/mcp/o/ORG_ID
 ```
 
-Copier l’URL exacte depuis les réglages de l’organisation. L’endpoint fixe l’organisation et utilise son application par défaut, sauf si la connexion MCP porte un `X-Application-Id` appartenant à cette organisation. Pour plusieurs organisations, enregistrer plusieurs connexions MCP.
+Copy the exact URL from organization settings. The endpoint fixes the organization and uses its
+default application unless the MCP connection carries an `X-Application-Id` that belongs to that
+organization. Register separate MCP connections for multiple organizations.
 
-La connexion accepte deux parcours : OAuth dans le navigateur, ou clé API portant `mcp:read` et `mcp:invoke`. Les opérations appelées appliquent ensuite leurs propres permissions Appstrate.
+The connection supports two paths: browser OAuth, or an API key carrying `mcp:read` and `mcp:invoke`.
+Called operations then enforce their own Appstrate permissions.
 
-Workflow d’administration :
+Administration workflow:
 
-1. Appeler `get_me` pour vérifier la cible et les connexions visibles.
-2. Appeler `search_operations` avec l’intention recherchée.
-3. Utiliser le contrat `best_match`, ou appeler `describe_operation` si la correspondance reste ambiguë.
-4. Appeler `invoke_operation` avec le schéma courant.
-5. Utiliser `run_and_wait` pour les tests nécessitant un run et attendre l’état terminal.
+1. Call `get_me` to verify the target and visible connections.
+2. Call `search_operations` with the intended action.
+3. Use the `best_match` contract, or call `describe_operation` if the match remains ambiguous.
+4. Call `invoke_operation` with the current schema.
+5. Use `run_and_wait` for tests that require a run and wait for its terminal state.
 
-Ne pas mémoriser les noms d’opérations ni leurs bodies dans le skill. Le catalogue MCP Appstrate et son OpenAPI sont la source de vérité courante.
+Do not memorize operation names or request bodies in the skill. The Appstrate MCP catalog and its
+OpenAPI specification are the current source of truth.
 
-### CLI Appstrate
+### Appstrate CLI
 
-La CLI utilise des profils nommés. Toujours passer le profil explicitement, par exemple `appstrate -p local` ou `appstrate -p cloud`, puis lire l’aide de la commande installée. Utiliser `appstrate api` comme passage authentifié vers une opération REST sans commande spécialisée.
+The CLI uses named profiles. Always pass the profile explicitly, such as `appstrate -p local` or
+`appstrate -p cloud`, then read help from the installed command. Use `appstrate api` as an
+authenticated path to a REST operation without a specialized command.
 
-La CLI est le repli naturel lorsque le MCP n’est pas connecté ou lorsqu’un fichier local, notamment une archive de package, ne peut pas être transmis par le contrat MCP courant.
+The CLI is the natural fallback when the MCP is not connected or when a local file, particularly a
+package archive, cannot be transported through the current MCP contract.
 
-### Choix
+### Choice
 
-| Situation | Interface recommandée |
+| Situation | Recommended interface |
 | --- | --- |
-| MCP déjà connecté à la bonne organisation | MCP Appstrate |
-| Découverte du contrat API courant | MCP Appstrate |
-| Lancement et attente d’un run | MCP Appstrate avec `run_and_wait` |
-| Import depuis un fichier local non transportable par le MCP | CLI Appstrate |
-| Automatisation shell reproductible | CLI Appstrate |
-| MCP indisponible ou non autorisé | CLI Appstrate |
-| CLI absente, MCP autorisé | MCP Appstrate |
+| MCP already connected to the correct organization | Appstrate MCP |
+| Discover the current API contract | Appstrate MCP |
+| Start and wait for a run | Appstrate MCP with `run_and_wait` |
+| Import a local file that the MCP cannot transport | Appstrate CLI |
+| Reproducible shell automation | Appstrate CLI |
+| MCP unavailable or unauthorized | Appstrate CLI |
+| CLI absent and MCP authorized | Appstrate MCP |
 
-## Sources officielles
+## Official sources
 
 - `https://developers.google.com/workspace/guides/configure-mcp-servers`
 - `https://developers.google.com/workspace/guides/configure-mcp-security`

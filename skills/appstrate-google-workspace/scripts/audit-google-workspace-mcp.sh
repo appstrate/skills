@@ -29,15 +29,15 @@ required_services=(
 )
 
 command -v gcloud >/dev/null 2>&1 || {
-  echo "gcloud est introuvable dans PATH." >&2
+  echo "gcloud was not found in PATH." >&2
   exit 1
 }
 
-echo "Compte et projet actifs"
+echo "Active account and project"
 gcloud config list --format='text(core.account,core.project)'
 
 echo
-echo "Projet cible"
+echo "Target project"
 gcloud projects describe "$project_id" \
   --format='text(projectId,projectNumber,lifecycleState)'
 
@@ -47,20 +47,20 @@ enabled_services="$(gcloud services list \
   --format='value(config.name)')"
 
 echo
-echo "Services requis"
+echo "Required services"
 missing_count=0
 for service in "${required_services[@]}"; do
   if grep -Fxq "$service" <<<"$enabled_services"; then
     echo "OK      $service"
   else
-    echo "MANQUANT $service"
+    echo "MISSING $service"
     missing_count=$((missing_count + 1))
   fi
 done
 
 if [[ -n "$workspace_email" ]]; then
   echo
-  echo "Attribution directe roles/mcp.toolUser"
+  echo "Direct roles/mcp.toolUser grant"
   iam_result="$(gcloud projects get-iam-policy "$project_id" \
     --flatten='bindings[].members' \
     --filter="bindings.role:roles/mcp.toolUser AND bindings.members:user:$workspace_email" \
@@ -69,15 +69,15 @@ if [[ -n "$workspace_email" ]]; then
   if [[ -n "$iam_result" ]]; then
     echo "$iam_result"
   else
-    echo "Aucune attribution directe trouvée pour $workspace_email."
-    echo "Un rôle plus large peut néanmoins fournir la permission mcp.tools.call."
+    echo "No direct grant found for $workspace_email."
+    echo "A broader role may still provide the mcp.tools.call permission."
   fi
 fi
 
 echo
 if [[ $missing_count -eq 0 ]]; then
-  echo "Audit terminé : tous les services requis sont activés."
+  echo "Audit complete: all required services are enabled."
 else
-  echo "Audit terminé : $missing_count service(s) requis sont manquants."
+  echo "Audit complete: $missing_count required service(s) are missing."
   exit 3
 fi

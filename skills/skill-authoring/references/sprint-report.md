@@ -1,47 +1,48 @@
-# Rapport d'avancement d'équipe
+# Team progress report
 
-## Objectif
+## Objective
 
-Produire un rapport de statut structuré (progression, blocages, prochaines étapes) à partir des tickets/PR/tâches d'une période donnée.
+Produce a structured status report covering progress, blockers, and next steps from tickets, pull
+requests, and tasks in a defined period.
 
-## Méthode
+## Method
 
-1. **Périmètre** : détermine la période et le projet/l'équipe concernés (le précédent jour ouvré pour un standup, le sprint en cours pour un rapport de sprint).
-2. **Collecte** : tickets fermés/en cours/bloqués, PR ouvertes/mergées, via les intégrations disponibles (gestion de projet, dev).
-3. **Synthèse** : priorise l'impact (ce qui avance, ce qui bloque) plutôt qu'une liste plate de tickets ; identifie les blocages récurrents.
-4. **Restitution** : rapport structuré : fait, en cours, bloqué, prochaines étapes.
+1. **Scope**: determine the period and project or team. Use the previous working day for a standup or the current sprint for a sprint report.
+2. **Collect**: retrieve closed, active, and blocked tickets plus open and merged pull requests through available integrations.
+3. **Synthesize**: prioritize impact and blockers over a flat ticket list. Identify recurring blockers.
+4. **Report**: structure the output as completed, in progress, blocked, and next steps.
 
-## Règles
+## Rules
 
-- Un rapport de standup se lit en moins d'une minute : pas une liste exhaustive de chaque ticket.
-- Signale un blocage explicitement, avec sa cause si elle est connue, pas juste « en attente ».
-- Ne déduis pas un statut non confirmé par les données (ne suppose pas qu'un ticket sans activité récente est bloqué sans le vérifier).
+- Keep a standup report readable in under a minute.
+- Name a blocker's cause when known instead of only saying "waiting."
+- Do not infer status unsupported by data. Inactivity alone does not prove a blocker.
 
-## Normalisation
+## Normalization
 
-Fixe la fenêtre en dates exactes et le périmètre en équipe, projet ou sprint. Relie une pull request à
-son ticket quand une référence stable existe afin de ne pas compter deux fois le même résultat. Un
-ticket fermé mesure une activité, pas nécessairement un impact livré. Décris l'impact seulement
-lorsque la source permet de le relier à un utilisateur, une métrique ou un objectif.
+Fix the window with exact dates and define scope by team, project, or sprint. Link a pull request to its
+ticket through stable references to avoid counting the same result twice. A closed ticket measures
+activity, not necessarily delivered impact. Describe impact only when a source connects it to a user,
+metric, or objective.
 
-Classe un item :
+Classify an item as:
 
-- **fait** si la source confirme son état terminal dans la fenêtre ;
-- **en cours** si une activité ou un état courant le confirme ;
-- **bloqué** seulement si un blocage ou une dépendance est explicitement signalé ;
-- **à clarifier** si les sources divergent ou sont trop anciennes.
+- **completed** when the source confirms a terminal state within the window;
+- **in progress** when activity or current state confirms it;
+- **blocked** only when a blocker or dependency is explicitly reported;
+- **needs clarification** when sources conflict or are too old.
 
-## Contrat de sortie
+## Output contract
 
 ```text
-Périmètre : équipe, projet, période, sources consultées
-Résultats livrés : résultat, impact connu, références
-En cours : prochaine étape et responsable connu
-Blocages : cause, durée, décision ou aide attendue
-Risques et écarts : objectif concerné, preuve
-Prochaine période : trois priorités maximum
+Scope: team, project, period, consulted sources
+Delivered outcomes: outcome, known impact, references
+In progress: next step and known owner
+Blockers: cause, duration, decision or help required
+Risks and variances: affected objective, evidence
+Next period: no more than three priorities
 ```
 
-Ajoute des comptes par statut seulement si le périmètre et la déduplication sont fiables. La méthode
-est terminée lorsque chaque item du rapport possède une référence source, aucun travail n'est compté
-deux fois et les blocages sont séparés des simples absences d'activité.
+Add status counts only when scope and deduplication are reliable. The method is complete when every
+reported item has a source reference, no work is counted twice, and blockers remain separate from
+mere inactivity.

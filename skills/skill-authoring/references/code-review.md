@@ -1,56 +1,55 @@
-# Revue de code structurée
+# Structured code review
 
-## Objectif
+## Objective
 
-Revoir un changement de code et produire un retour actionnable, catégorisé par sévérité, pas un jugement global.
+Review a code change and produce actionable feedback categorized by severity, not a general judgment.
 
-## Méthode
+## Method
 
-1. **Lecture** : comprends l'intention du changement (description de la PR, ticket lié si disponible) avant de juger le code.
-2. **Analyse** : repère : bugs probables, risques de sécurité, régressions, incohérences avec les conventions du projet, opportunités de simplification. Ignore le style pur si un linter/formatter existe déjà.
-3. **Restitution** : commentaires groupés par sévérité (bloquant / à corriger / suggestion), chacun localisé (fichier/ligne) avec la raison, pas juste « change ça ».
+1. **Read**: understand the change's intent from the pull request and linked issue before judging the code.
+2. **Analyze**: find likely bugs, security risks, regressions, project convention violations, and useful simplifications. Ignore pure style when a formatter or linter already owns it.
+3. **Report**: group comments by severity, locate each by file and line, and explain the reason rather than only requesting a change.
 
-## Règles
+## Rules
 
-- Un commentaire sans explication du risque concret n'est pas utile : dis toujours ce qui casse et dans quel scénario.
-- Ne bloque pas sur des préférences de style si aucune convention du projet ne les impose.
-- Signale explicitement l'absence de tests sur un changement à risque, sans l'inventer.
+- Always name the concrete risk and scenario. A comment without them is not useful.
+- Do not block on stylistic preferences unsupported by a project convention.
+- Explicitly report missing tests for risky changes without inventing test results.
 
-## Deux passes obligatoires
+## Two required passes
 
-Effectue deux lectures distinctes afin de ne pas confondre conformité et utilité :
+Perform two distinct reads so compliance and usefulness remain separate:
 
-1. **Contrat** : le changement satisfait-il la demande, y compris les cas limites et les preuves attendues ?
-2. **Standards** : respecte-t-il les règles explicites du dépôt et les frontières des modules touchés ?
+1. **Contract**: does the change satisfy the request, including edge cases and expected evidence?
+2. **Standards**: does it follow explicit repository rules and the boundaries of affected modules?
 
-Une règle de dépôt n'est bloquante que si elle est écrite ou démontrée par une convention stable. Une
-préférence personnelle reste une suggestion.
+A repository rule is blocking only when written or demonstrated by a stable convention. Personal
+preference remains a suggestion.
 
-## Sévérité
+## Severity
 
-- **Bloquant** : corruption, faille, perte de données, contrat principal faux ou déploiement impossible.
-- **À corriger** : comportement incorrect dans un scénario réaliste, régression ou dette qui rend la
-  prochaine modification dangereuse.
-- **Suggestion** : simplification utile sans défaut observable aujourd'hui.
+- **Blocking**: corruption, vulnerability, data loss, broken primary contract, or impossible deployment.
+- **Must fix**: incorrect behavior in a realistic scenario, regression, or debt that makes the next change unsafe.
+- **Suggestion**: useful simplification without an observable defect today.
 
-Chaque finding suit ce patron : `sévérité`, `fichier:ligne`, scénario reproductible, conséquence,
-correction minimale. Si aucun finding ne survit à ce test, dis explicitement que la revue n'en a pas.
+Every finding follows this pattern: `severity`, `file:line`, reproducible scenario, consequence,
+minimum correction. If no finding survives this test, explicitly say the review found none.
 
-## Contrat de sortie
+## Output contract
 
 ```text
-Verdict : prêt | changements requis
+Verdict: ready | changes required
 
-Bloquants
-- [fichier:ligne] Scénario, conséquence, correction.
+Blocking
+- [file:line] Scenario, consequence, correction.
 
-À corriger
+Must fix
 - ...
 
-Preuves vérifiées
-- tests exécutés ;
-- surfaces non testées et raison.
+Evidence checked
+- tests run;
+- untested surfaces and reason.
 ```
 
-La revue est terminée lorsque chaque fichier modifié a été relié au besoin, chaque finding décrit un
-échec concret et les vérifications réellement exécutées sont distinguées des suppositions.
+The review is complete when every changed file is connected to the need, each finding describes a
+concrete failure, and executed checks are distinguished from assumptions.

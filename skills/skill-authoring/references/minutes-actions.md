@@ -1,52 +1,51 @@
-# Synthèse de réunion en décisions et actions
+# Meeting summary, decisions, and actions
 
-## Objectif
+## Objective
 
-À partir d'un transcript ou de notes de réunion, produire une synthèse exploitable : un résumé court, les décisions réellement actées, et les actions à suivre avec responsable et échéance quand ils sont nommés.
+Turn a transcript or meeting notes into a useful short summary, confirmed decisions, and follow-up
+actions with owners and due dates when named.
 
-## Méthode
+## Method
 
-1. **Contexte** : si un `## Checkpoint` est injecté, il contient la synthèse de la réunion précédente du même type (sujets récurrents, actions encore ouvertes) : utilise-le, ne le redemande pas.
-2. **Analyse** : distingue :
-   - les **décisions** réellement actées (pas les pistes évoquées) ;
-   - les **actions** : une tâche, un responsable et une échéance, uniquement s'ils sont explicitement nommés ;
-   - les **points d'attention** : désaccords, questions ouvertes, sujets reportés.
-3. **Restitution** : structure le résultat selon le schéma déclaré par l'agent (typiquement `resume`, `decisions`, `actions[]`, `points_attention`), puis produis un compte-rendu lisible : résumé, décisions, tableau des actions (Action · Responsable · Échéance), points d'attention.
-4. **Mémoire** : si l'agent possède une mémoire durable, enregistre un récapitulatif court avec la date, les sujets et les actions ouvertes pour la prochaine réunion. S'il possède aussi une capacité d'archivage, conserve les décisions structurantes, par exemple un engagement ferme, un budget ou une échéance contractuelle.
+1. **Context**: when `## Checkpoint` is injected, use its summary of the previous related meeting and open actions without asking again.
+2. **Analyze**: separate confirmed decisions, actions, and attention points such as disagreements, open questions, and postponed topics. Include an owner or deadline only when explicitly named.
+3. **Report**: follow the agent's declared schema, then produce readable minutes with summary, decisions, an action table, and attention points.
+4. **Memory**: when durable memory exists, save a dated recap of topics and open actions. When archival capability also exists, preserve structural decisions such as firm commitments, budgets, or contractual dates.
 
-## Prérequis sémantiques
+## Semantic prerequisites
 
-Le suivi entre réunions exige une mémoire durable et l'archivage exige une capacité de conservation à long terme. L'agent traduit ces besoins avec les capacités de son contrat courant. Sans elles, produis la synthèse du jour et n'annonce aucun suivi entre réunions.
+Cross-meeting follow-up requires durable memory, and archiving requires long-term retention. The agent
+maps these needs to its current contract. Without them, produce today's summary and claim no ongoing
+tracking.
 
-## Règles
+## Rules
 
-- N'invente jamais un responsable ou une échéance absents du transcript : laisse le champ vide.
-- Une action = un verbe d'action + un livrable clair (« Rédiger la spec X », pas « Voir pour X »).
-- Transcript vide ou inintelligible : dis-le explicitement plutôt que de combler les trous.
+- Never invent a missing owner or due date. Leave the field null.
+- Write each action as an action verb plus a clear deliverable.
+- For an empty or unintelligible transcript, report the problem instead of filling gaps.
 
-## Tests de classification
+## Classification tests
 
-Une **décision** comporte un accord ou un choix final, pas seulement une préférence exprimée. Une
-**action** comporte un changement futur vérifiable. Une **question ouverte** reste ouverte même si une
-option a reçu davantage d'attention pendant l'échange.
+A **decision** contains a final agreement or choice, not a discussed option. An **action** describes a
+verifiable future change. An **open question** remains open even when one option received more
+attention.
 
-Pour chaque élément, conserve une preuve courte avec horodatage ou locuteur si la source le permet.
-Un responsable collectif comme « l'équipe » reste collectif. Une échéance relative est normalisée à
-partir de la date de réunion seulement lorsque cette date est connue.
+Keep short evidence with a timestamp or speaker when available. A collective owner such as "the team"
+remains collective. Normalize a relative deadline from the meeting date only when that date is known.
 
-## Contrat de sortie
+## Output contract
 
 ```json
 {
-  "summary": "résumé en quelques phrases",
+  "summary": "summary in a few sentences",
   "decisions": [{ "decision": "...", "evidence": "..." }],
   "actions": [
-    { "action": "verbe et livrable", "owner": null, "due_date": null, "evidence": "..." }
+    { "action": "verb and deliverable", "owner": null, "due_date": null, "evidence": "..." }
   ],
   "open_questions": [{ "question": "...", "next_step": null }]
 }
 ```
 
-Déduplique les reformulations d'une même décision ou action. Le compte-rendu est terminé lorsque
-chaque item structuré est traçable au transcript, les champs absents restent nuls et les désaccords
-ne sont pas transformés en décisions.
+Deduplicate restatements of the same decision or action. Minutes are complete when every structured
+item traces to the transcript, absent fields remain null, and disagreements are not turned into
+decisions.

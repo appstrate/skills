@@ -1,96 +1,95 @@
-# Recettes d'automatisation par accès
+# Automation recipes by access type
 
-Utiliser cette référence pour transformer la liste des outils d'un utilisateur en propositions
-concrètes. Les noms de méthodes indiquent le savoir-faire à rechercher dans l'organisation. Ils ne
-prouvent pas qu'une skill correspondante est installée.
+Use this reference to turn a user's tool list into concrete proposals. Method names indicate expertise
+to look for in the organization. They do not prove that a corresponding skill is installed.
 
-## Messagerie et email
+## Messaging and email
 
-- Brief des messages prioritaires du matin, avec tri et prochaines actions.
-- Brouillons de réponses pour les demandes récurrentes, soumis à validation.
-- Extraction des engagements et création de tâches dans l'outil de projet.
-- Alerte sur les expéditeurs ou thèmes critiques.
+- Morning brief of priority messages with triage and next actions.
+- Draft replies to recurring requests, submitted for approval.
+- Extract commitments and create tasks in the project tool.
+- Alert on critical senders or topics.
 
-Méthodes candidates : triage, réponse email, compte rendu et actions, digest incrémental.
+Candidate methods: triage, email reply, minutes and actions, incremental digest.
 
-## Documents et espaces de connaissance
+## Documents and knowledge spaces
 
-- Réponse sourcée à partir des documents accessibles.
-- Résumé des nouveaux fichiers ou des modifications récentes.
-- Extraction de champs depuis des contrats, factures, formulaires ou CV.
-- Surveillance d'un dossier partagé avec notification des changements utiles.
+- Sourced answers from accessible documents.
+- Summary of new files or recent changes.
+- Field extraction from contracts, invoices, forms, or resumes.
+- Monitor a shared folder and notify users of useful changes.
 
-Méthodes candidates : réponse sourcée, extraction documentaire, digest incrémental.
+Candidate methods: sourced answer, document extraction, incremental digest.
 
-## Gestion de projet
+## Project management
 
-- Digest des tâches dues, bloquées ou en retard.
-- Création d'une tâche à partir d'un message ou d'une réunion.
-- Rapport d'avancement d'un projet ou d'un sprint.
-- Détection des éléments sans activité depuis une durée anormale.
+- Digest of due, blocked, or overdue tasks.
+- Create a task from a message or meeting.
+- Project or sprint progress report.
+- Detect items with no activity for an abnormal period.
 
-Méthodes candidates : digest incrémental, compte rendu et actions, rapport de sprint.
+Candidate methods: incremental digest, minutes and actions, sprint report.
 
-## Finance et facturation
+## Finance and billing
 
-- Détection des factures en retard et préparation des relances.
-- Rapport périodique sur les encaissements et la trésorerie.
-- Catégorisation et contrôle d'un export de transactions.
-- Recherche du statut d'une facture ou d'un paiement.
+- Detect overdue invoices and prepare follow-ups.
+- Periodic report on collections and cash flow.
+- Categorize and check a transaction export.
+- Find the status of an invoice or payment.
 
-Méthodes candidates : analyse de données, extraction documentaire, réponse email.
+Candidate methods: data analysis, document extraction, email reply.
 
-## Calendrier et réunions
+## Calendar and meetings
 
-- Brief avant les réunions du jour à partir des participants et interactions précédentes.
-- Synthèse, décisions et actions après une réunion.
-- Recherche de créneaux selon les calendriers autorisés.
+- Brief for today's meetings from participants and previous interactions.
+- Summary, decisions, and actions after a meeting.
+- Find time slots in authorized calendars.
 
-Méthodes candidates : préparation de réunion, compte rendu et actions.
+Candidate methods: meeting preparation, minutes and actions.
 
-## Messagerie d'équipe
+## Team messaging
 
-- Digest des canaux importants avec décisions et actions.
-- Résumé des changements depuis le dernier passage.
-- Réponse sourcée aux questions internes depuis la base documentaire.
+- Digest important channels with decisions and actions.
+- Summarize changes since the previous run.
+- Answer internal questions from the document base with sources.
 
-Méthodes candidates : digest incrémental, compte rendu et actions, réponse sourcée.
+Candidate methods: incremental digest, minutes and actions, sourced answer.
 
-## CRM et développement commercial
+## CRM and business development
 
-- Brief avant un rendez-vous avec un prospect ou un client.
-- Relances des opportunités qui nécessitent une action.
-- Qualification des nouveaux leads par rapport aux critères de l'organisation.
-- Mise à jour du CRM après une interaction.
+- Brief before a prospect or customer meeting.
+- Follow up opportunities that require action.
+- Qualify new leads against organizational criteria.
+- Update the CRM after an interaction.
 
-Méthodes candidates : recherche client, mise à jour CRM, réponse email.
+Candidate methods: customer research, CRM update, email reply.
 
 ## Support
 
-- Classification et priorisation des demandes entrantes.
-- Brouillons de réponses appuyés sur la base de connaissance.
-- Synthèse périodique des irritants et demandes récurrentes.
+- Classify and prioritize incoming requests.
+- Draft answers grounded in the knowledge base.
+- Periodically summarize recurring pain points and requests.
 
-Méthodes candidates : triage et sentiment, réponse sourcée, digest incrémental.
+Candidate methods: triage and sentiment, sourced answer, incremental digest.
 
-## Développement logiciel
+## Software development
 
-- Revue d'un changement ou d'une pull request.
-- Résumé des travaux ouverts et des blocages.
-- Triage des nouvelles issues.
+- Review a change or pull request.
+- Summarize open work and blockers.
+- Triage new issues.
 
-Méthodes candidates : revue de code, rapport de sprint, triage et sentiment.
+Candidate methods: code review, sprint report, triage and sentiment.
 
-## Veille
+## Monitoring
 
-- Recherche sourcée immédiate sur un sujet.
-- Veille périodique qui ne restitue que les nouveaux éléments.
-- Livraison du digest dans le canal autorisé par l'utilisateur.
+- Immediate sourced research on a topic.
+- Periodic monitoring that returns only new findings.
+- Deliver the digest through the user-authorized channel.
 
-Méthodes candidates : recherche web sourcée, digest incrémental.
+Candidate methods: sourced web research, incremental digest.
 
-## Contrôle de proposition
+## Proposal check
 
-Conserver une idée seulement si les accès sont disponibles ou peuvent être connectés par un chemin
-réaliste. Nommer le résultat, le mode ponctuel ou récurrent, les accès requis et la preuve qui
-permettra de déclarer l'automatisation fonctionnelle.
+Keep an idea only when access is available or can be connected through a realistic path. Name the
+outcome, one-time or recurring mode, required access, and evidence needed to call the automation
+functional.

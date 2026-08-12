@@ -1,49 +1,49 @@
-# Mise à jour CRM et suivi de pipeline
+# CRM update and pipeline follow-up
 
-## Objectif
+## Objective
 
-Enrichir un lead, journaliser une interaction, ou signaler une opportunité qui a besoin d'attention : dans le CRM connecté, quel qu'il soit.
+Enrich a lead, log an interaction, or flag an opportunity that needs attention in any connected CRM.
 
-## Méthode
+## Method
 
-1. **Identification** : retrouve ou crée l'enregistrement concerné (contact, société, opportunité) dans le CRM connecté ; vérifie d'abord l'existant pour éviter les doublons.
-2. **Enrichissement** : complète les champs disponibles à partir des sources accessibles (email, web, formulaire) : poste, société, dernier point de contact.
-3. **Journalisation** : après une interaction (réunion, appel, échange), consigne un résumé court dans l'enregistrement, pas une transcription brute.
-4. **Détection de stagnation** : si le contexte le permet (date de dernière activité disponible dans le CRM), signale une opportunité sans mouvement depuis un délai anormal et propose une relance.
+1. **Identify**: find or create the relevant contact, company, or opportunity. Search first to prevent duplicates.
+2. **Enrich**: complete available fields from accessible sources, such as email, web, or forms.
+3. **Log**: after an interaction, save a short summary in the record, not a raw transcript.
+4. **Detect stagnation**: when last-activity data exists, flag opportunities with unusually long inactivity and propose a follow-up.
 
-## Règles
+## Rules
 
-- Ne crée jamais un doublon sans avoir cherché l'enregistrement existant d'abord.
-- N'écrase pas un champ déjà renseigné sans être sûr que la nouvelle valeur est plus fiable.
-- Une relance proposée doit être personnalisée au contexte réel (dernier échange), jamais un modèle générique.
+- Never create a duplicate without first searching for the existing record.
+- Do not overwrite a populated field unless the new value is demonstrably more reliable.
+- Ground every proposed follow-up in the actual previous interaction, not a generic template.
 
-## Résolution d'identité
+## Identity resolution
 
-Cherche d'abord sur un identifiant fort, par exemple email exact, identifiant CRM ou domaine confirmé.
-Un nom seul, une société homonyme ou une correspondance approximative ne suffit pas pour fusionner ou
-mettre à jour. Dans ce cas, retourne les candidates et le fait qui manque pour trancher.
+Search first using a strong identifier, such as an exact email, CRM ID, or confirmed domain. A name,
+same-name company, or approximate match is insufficient for merging or updating. Return candidates and
+the missing discriminating fact instead.
 
-Classe chaque valeur proposée :
+Classify each proposed value:
 
-- **confirmée** : présente dans une source directe ou déclarée par la personne ;
-- **inférée** : déduite de plusieurs indices cohérents ;
-- **conflictuelle** : deux sources crédibles divergent.
+- **confirmed**: present in a direct source or declared by the person;
+- **inferred**: derived from several consistent signals;
+- **conflicting**: credible sources disagree.
 
-Écris automatiquement seulement une valeur confirmée et plus fraîche que l'existante. Place les
-inférences et conflits dans les notes ou dans la sortie à valider.
+Write automatically only a confirmed value that is fresher than the existing one. Put inferences and
+conflicts in notes or in output awaiting validation.
 
-## Contrat de sortie
+## Output contract
 
 ```json
 {
-  "record": "identifiant ou candidate",
-  "changes": [{ "field": "champ", "before": null, "after": "valeur", "source": "preuve" }],
-  "interaction_summary": "résumé court et daté",
-  "follow_up": { "needed": true, "reason": "signal observé", "suggested_action": "action" },
+  "record": "identifier or candidate",
+  "changes": [{ "field": "field", "before": null, "after": "value", "source": "evidence" }],
+  "interaction_summary": "short dated summary",
+  "follow_up": { "needed": true, "reason": "observed signal", "suggested_action": "action" },
   "conflicts": []
 }
 ```
 
-Adapte les clés au CRM vivant, mais conserve la séparation entre changements appliqués, preuves,
-conflits et proposition de suivi. La méthode est terminée lorsque chaque mutation vise un enregistrement
-résolu sans ambiguïté et possède une source traçable.
+Adapt keys to the live CRM while preserving separation among applied changes, evidence, conflicts,
+and follow-up proposals. The method is complete when every mutation targets an unambiguously resolved
+record and has traceable evidence.

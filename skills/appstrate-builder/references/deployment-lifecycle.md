@@ -1,30 +1,28 @@
-# Cycle de déploiement Appstrate
+# Appstrate deployment lifecycle
 
-## Cadrage
+## Framing
 
-Définir le sponsor, les architectes IA, les équipes cibles, les données autorisées et un résultat
-mesurable. Choisir un cas d'usage assez fréquent pour produire un signal, mais assez borné pour être
-testé sans risque.
+Define the sponsor, AI architects, target teams, authorized data, and a measurable outcome. Choose a
+use case frequent enough to produce a signal but bounded enough to test safely.
 
-## Pilote
+## Pilot
 
-Créer une application limitée à un petit groupe. Installer les intégrations et skills nécessaires,
-assembler l'agent, puis tester avec des données représentatives. Documenter les permissions, les
-limites et le propriétaire de chaque composant.
+Create an application limited to a small group. Install required integrations and skills, assemble
+the agent, then test it with representative data. Document permissions, limits, and the owner of each
+component.
 
-## Préproduction
+## Preproduction
 
-Tester les erreurs d'accès, les données manquantes, les volumes réalistes et les reprises. Vérifier
-les journaux, les coûts, les effets externes et la procédure de retrait. Obtenir l'accord humain avant
-toute écriture autonome ou planification récurrente.
+Test access errors, missing data, realistic volumes, and retries. Inspect logs, costs, external
+effects, and the rollback procedure. Obtain human approval before autonomous writes or recurring
+scheduling.
 
-## Déploiement
+## Deployment
 
-Affecter l'application aux équipes prévues, former les utilisateurs sur le résultat attendu et le
-chemin d'escalade, puis surveiller les premiers runs. Conserver les versions exactes déployées.
+Assign the application to the intended teams, train users on the expected outcome and escalation path,
+then monitor the first runs. Retain the exact versions deployed.
 
-## Exploitation
+## Operations
 
-Réviser périodiquement les connexions, permissions, erreurs, coûts et usages. Corriger la méthode
-partagée lorsqu'une règle est réutilisable. Corriger l'agent lorsqu'un paramètre appartient seulement
-à son déploiement.
+Periodically review connections, permissions, errors, costs, and usage. Correct the shared method when
+a rule is reusable. Correct the agent when a parameter belongs only to its deployment.

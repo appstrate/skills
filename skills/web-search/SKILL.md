@@ -1,69 +1,65 @@
 ---
 name: web-search
-description: Chercher le web ou lire des URL depuis le chat. Charge ce guide dès que la demande exige des informations web externes. Il choisit un connecteur disponible, lance un run inline borné et restitue seulement des résultats appuyés par les sources observées.
+description: Search the web or read URLs through Appstrate. Load this guide whenever a request requires external web information. It selects a live connector, runs a bounded inline agent, and returns only findings supported by observed sources.
 ---
 
-# Recherche web par run inline
+# Search the web through an inline run
 
-Le chat ou l'agent de coding orchestre la recherche, un agent Appstrate utilise le connecteur web. Le
-résultat attendu est une réponse fondée sur les pages réellement consultées, avec les URL nécessaires
-pour vérifier chaque fait important.
+The chat or coding agent orchestrates the task while an Appstrate agent uses the web connector. The
+result must be grounded in pages that were actually retrieved, with URLs that support every material
+claim.
 
-## 1. Définir la preuve attendue
+## 1. Define the required evidence
 
-Choisis une seule branche avant de chercher :
+Choose one branch before searching:
 
-- **recherche** : découvrir des pages à partir d'une question ;
-- **lecture** : extraire ou résumer une liste d'URL déjà fournie ;
-- **recherche puis lecture** : découvrir des candidates, puis lire seulement les plus pertinentes.
+- **search**: discover pages from a question;
+- **read**: extract or summarize supplied URLs;
+- **search then read**: discover candidates, then read only the most relevant pages.
 
-Fixe dans le prompt du run une limite d'effort et une condition d'arrêt adaptées à la demande. Pour
-une question ordinaire, quelques sources indépendantes et directement pertinentes suffisent. Une
-affirmation sensible ou contestée exige une source primaire quand elle existe.
+Set an effort bound and stopping condition in the run prompt. A routine question needs a small set of
+independent, directly relevant sources. A sensitive or disputed claim requires a primary source when
+one exists.
 
-Cette étape est terminée lorsque le run saura quelles affirmations étayer, combien de sources viser
-et quand s'arrêter.
+This step is complete when the run knows which claims to support, how many sources to seek, and when
+to stop.
 
-## 2. Choisir depuis le catalogue vivant
+## 2. Select from the live catalog
 
-Découvre les intégrations disponibles et leurs connexions avec les opérations courantes du MCP.
-Inspecte le détail des candidates avant de choisir : capacités, outils, destinations autorisées et
-état de connexion doivent venir du contrat vivant, jamais d'une liste mémorisée dans ce guide.
+Discover integrations and connections through the current Appstrate contract. Inspect candidate
+details before choosing. Capabilities, tools, allowed destinations, and connection state must come
+from the live contract, not a memorized provider list.
 
-Sélectionne le connecteur qui couvre toute la branche avec le moins d'intermédiaires. Une capacité de
-recherche ne garantit pas la lecture du contenu complet, et une capacité de lecture d'URL ne garantit
-pas la découverte. Si aucune candidate ne satisfait la preuve attendue, applique le parcours de
-connexion courant. Si aucun connecteur adéquat n'existe, annonce cette limite et demande le contenu
-ou une URL exploitable.
+Choose the connector that covers the whole branch with the fewest intermediaries. Search capability
+does not guarantee full-page retrieval, and URL reading does not guarantee discovery. If no candidate
+fits, follow the current connection workflow. If no viable connector exists, state the limitation and
+request an accessible URL or the source content.
 
-Cette étape est terminée lorsqu'un connecteur disponible possède les capacités nécessaires, ou
-lorsque l'absence de chemin web est prouvée par le catalogue.
+This step is complete when an available connector covers the required evidence or the catalog proves
+that no web path exists.
 
-## 3. Lancer un seul run
+## 3. Run once
 
-Utilise l'opération courante de run inline et d'attente. Avec le MCP, préfère `run_and_wait` lorsqu'elle
-est exposée. Avec la CLI, lis l'aide installée et utilise le chemin API authentifié correspondant.
-Donne au run :
+Use the current inline-run and wait operation. With MCP, prefer `run_and_wait` when exposed. With the
+CLI, inspect installed help and use the corresponding authenticated API path. Give the run:
 
-- un titre humain propre à cette recherche ;
-- seulement le connecteur et les outils vérifiés à l'étape précédente ;
-- la question, les URL éventuelles, la limite d'effort et la condition d'arrêt ;
-- une consigne de progression utile, puis une restitution finale par le mécanisme de sortie courant.
+- a human-readable title;
+- only the connector and tools verified in the previous step;
+- the question, optional URLs, effort bound, and stopping condition;
+- a useful progress instruction and a final result through the current output mechanism.
 
-Compose la recherche et la lecture dans le même run lorsque aucune décision humaine n'est nécessaire
-entre les deux. Demande au run de conserver pour chaque constat son URL source et, si disponible, le
-titre, l'auteur ou l'organisation et la date de publication. Une page inaccessible reste un échec
-observé, pas une source.
+Combine search and reading in one run unless a human decision is required between them. Preserve each
+finding's URL and, when available, title, author or organization, and publication date. An inaccessible
+page is an observed failure, not a source.
 
-Cette étape est terminée lorsque l'opération retourne un résultat terminal et que les sources utilisées
-sont identifiables dans ce résultat ou dans son document durable.
+This step is complete when the operation returns a terminal result and the used sources are
+identifiable in the result or durable output.
 
-## 4. Restituer
+## 4. Report
 
-Réponds à partir du résultat observé. Associe les citations aux affirmations qu'elles soutiennent et
-distingue clairement : fait établi, désaccord entre sources, et inférence. Si le run revient vide ou
-faible, change une seule dimension utile, par exemple la requête, le type de source ou le connecteur,
-puis effectue au plus une nouvelle tentative ciblée.
+Answer from the observed result. Place citations next to the claims they support and distinguish
+established facts, disagreements, and inferences. If the run is empty or weak, change one useful
+dimension, such as query, source type, or connector, then make at most one targeted retry.
 
-Considère la recherche terminée lorsque chaque affirmation importante possède une source pertinente,
-ou lorsque la limite d'accès restante est nommée précisément.
+The research is complete when every important claim has a relevant source or the remaining access
+limit is stated precisely.

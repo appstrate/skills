@@ -1,47 +1,48 @@
-# Rédaction de contenu
+# Content writing
 
-## Objectif
+## Objective
 
-Produire un contenu prêt à relire (post, article, email de prospection) à partir d'un brief ou d'un contexte, dans la voix de l'organisation.
+Produce review-ready content, such as a post, article, or outreach email, from a brief or context in
+the organization's voice.
 
-## Méthode
+## Method
 
-1. **Brief** : clarifie l'objectif (informer, convertir, engager), le format et la longueur attendus, l'audience visée. Si un point manquant change fondamentalement le résultat, demande-le plutôt que de deviner.
-2. **Matière première** : appuie-toi sur le contexte fourni (source, transcript, données) plutôt que sur des généralités ; un contenu qui ne dit rien de spécifique ne sert à rien.
-3. **Rédaction** : si l'organisation possède une méthode de voix de marque et que l'agent en dépend, applique-la pour rester dans son ton. Porte un seul message clair par contenu, pas une liste de tout ce qui pourrait être dit.
-4. **Restitution** : le contenu fini, prêt à relire/publier, pas un brouillon à retravailler entièrement.
+1. **Brief**: clarify the objective, format, length, and audience. Ask about a missing point only when it fundamentally changes the result.
+2. **Source material**: use supplied sources, transcripts, and data instead of generalities.
+3. **Write**: apply an organizational brand-voice method when the agent depends on one. Carry one clear message rather than every possible message.
+4. **Deliver**: return finished copy ready for review or publication, not a structural draft.
 
-## Règles
+## Rules
 
-- Jamais de publication automatique : le contenu reste une proposition à valider.
-- Pas de superlatifs ou de claims non vérifiables sans source (« le meilleur », « révolutionnaire ») sauf si explicitement demandés.
-- Un contenu généré doit rester spécifique au contexte fourni, pas un texte générique interchangeable.
+- Never publish automatically. Content remains a proposal for approval.
+- Avoid unverifiable superlatives and claims unless explicitly requested.
+- Keep generated content specific to the provided context, not interchangeable boilerplate.
 
-## Matrice de brief
+## Brief matrix
 
-Avant d'écrire, fixe les six variables qui changent réellement le texte : lecteur, problème vécu,
-idée centrale, preuve disponible, canal et action souhaitée. Demande seulement une variable absente
-si deux réponses plausibles produiraient des contenus nettement différents.
+Fix six variables before writing: reader, experienced problem, central idea, available proof, channel,
+and desired action. Ask only for a missing variable when plausible answers would produce materially
+different content.
 
-Construis ensuite :
+Then build:
 
-1. une ouverture qui rend le problème ou l'enjeu concret ;
-2. une idée centrale soutenue par un exemple, une donnée ou une observation fournie ;
-3. une conclusion qui accomplit l'objectif du brief ;
-4. un appel à l'action seulement si le format et l'objectif le justifient.
+1. an opening that makes the problem or stakes concrete;
+2. one central idea supported by a supplied example, data point, or observation;
+3. a conclusion that fulfills the brief;
+4. a call to action only when justified by the format and objective.
 
-## Contrôle de spécificité
+## Specificity check
 
-Le brouillon doit contenir au moins deux éléments impossibles à conserver dans un contenu concurrent
-sans le réécrire, par exemple un exemple propre à l'organisation, une donnée, un point de vue ou une
-formulation issue de sa voix. Retire les ouvertures génériques, les listes de bénéfices sans preuve et
-les appels à l'action sans lien avec le message.
+The draft must contain at least two elements that could not remain in a competitor's content without
+rewriting, such as an organization-specific example, data point, perspective, or phrase from its
+voice. Remove generic openings, unsupported benefit lists, and calls to action disconnected from the
+message.
 
-## Contrat de sortie
+## Output contract
 
-Rends le contenu final en premier, puis une courte section `À valider` uniquement pour les faits,
-liens ou choix éditoriaux encore incertains. Pour plusieurs variantes, change un axe nommé comme
-l'angle ou le niveau de directivité, pas seulement quelques synonymes.
+Return the final content first, followed by a short `To validate` section only for uncertain facts,
+links, or editorial choices. For variants, change a named dimension such as angle or directness, not
+only a few synonyms.
 
-La méthode est terminée lorsque le texte respecte le format, porte une idée reconnaissable, utilise
-la matière fournie et peut être relu sans travail de réécriture structurelle.
+The method is complete when the text fits the format, carries a recognizable idea, uses the supplied
+material, and can be reviewed without structural rewriting.

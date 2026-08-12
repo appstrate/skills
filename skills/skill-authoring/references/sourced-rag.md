@@ -1,45 +1,45 @@
-# Réponse sourcée sur base de connaissance
+# Sourced knowledge-base answers
 
-## Objectif
+## Objective
 
-Répondre à une question en s'appuyant exclusivement sur les documents/sources disponibles, avec citation, sans halluciner.
+Answer a question exclusively from available documents and sources, with citations and no fabrication.
 
-## Méthode
+## Method
 
-1. **Recherche** : interroge la ou les sources connectées (recherche sémantique/mot-clé selon ce qu'expose l'intégration) avec plusieurs formulations si la première ne remonte rien de pertinent.
-2. **Lecture** : ne retiens que ce qui répond réellement à la question ; ignore le bruit.
-3. **Réponse** : rédige à partir des extraits trouvés uniquement, en citant la source (titre du document, lien si disponible) pour chaque affirmation.
-4. **Absence d'info** : si rien de pertinent n'est trouvé, dis-le explicitement plutôt que de répondre depuis ta connaissance générale ; propose éventuellement où chercher ailleurs.
+1. **Search**: query connected sources through available semantic or keyword search. Try several formulations when the first returns nothing relevant.
+2. **Read**: retain only material that answers the question and discard noise.
+3. **Answer**: write only from retrieved excerpts and cite the document title and link when available for every claim.
+4. **No evidence**: explicitly state when nothing relevant was found instead of answering from general knowledge. Suggest another place to search when useful.
 
-## Règles
+## Rules
 
-- Jamais de réponse sans source si une base de connaissance est disponible : une réponse partielle sourcée vaut mieux qu'une réponse complète non vérifiable.
-- Ne mélange pas connaissance générale et contenu sourcé sans le signaler clairement.
-- Une citation doit être assez précise pour que l'utilisateur retrouve le passage (nom du document, section si possible).
+- When a knowledge base is available, prefer a partial sourced answer to a complete unverifiable one.
+- Do not mix general knowledge with sourced content without clearly labeling it.
+- Make citations precise enough to recover the passage, including document and section when possible.
 
-## Recherche et seuil de preuve
+## Search and evidence threshold
 
-Transforme la question en deux à quatre formulations qui couvrent les synonymes, entités et dates
-utiles. Lis les passages voisins d'un résultat afin de ne pas isoler une phrase de sa condition ou de
-son exception. Déduplique les extraits provenant du même document.
+Transform the question into two to four formulations covering useful synonyms, entities, and dates.
+Read neighboring passages so a sentence is not separated from its condition or exception. Deduplicate
+excerpts from the same document.
 
-Une affirmation est soutenue lorsque le passage cité l'énonce directement ou permet une inférence
-simple explicitement signalée. La présence des mêmes mots-clés ne suffit pas. Pour une procédure,
-cherche aussi les prérequis, exceptions et version du document.
+A claim is supported when the cited passage states it directly or permits a simple, explicitly
+labeled inference. Shared keywords are insufficient. For a procedure, also find prerequisites,
+exceptions, and document version.
 
-## Contrat de sortie
+## Output contract
 
 ```text
-Réponse
-Paragraphe avec citation [S1].
+Answer
+Paragraph with citation [S1].
 
 Sources
-[S1] Titre, section ou page, URI ou lien
+[S1] Title, section or page, URI or link
 
-Limites
-Information demandée non couverte, divergence ou document possiblement périmé.
+Limitations
+Requested information not covered, disagreement, or possibly outdated document.
 ```
 
-Chaque citation soutient la phrase qui la précède. Si deux sources se contredisent, présente les deux
-positions avec leur date et leur portée. La méthode est terminée lorsque chaque affirmation factuelle
-possède une preuve retrouvable et que les parties sans couverture sont clairement séparées.
+Each citation supports the sentence immediately before it. When sources conflict, present both
+positions with dates and scope. The method is complete when every factual claim has recoverable
+evidence and uncovered parts are clearly separated.

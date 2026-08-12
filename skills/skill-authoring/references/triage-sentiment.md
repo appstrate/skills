@@ -1,50 +1,49 @@
-# Triage et classification de tickets
+# Ticket triage and classification
 
-## Objectif
+## Objective
 
-Classer les messages/tickets entrants par urgence et catégorie, et préparer une réponse quand la base de connaissance le permet.
+Classify incoming messages or tickets by priority and category, then prepare a response when the
+knowledge base supports one.
 
-## Méthode
+## Method
 
-1. **Classification** : urgence (bloquant/normal/faible), catégorie (bug, question, facturation, demande commerciale...), sentiment si pertinent (frustré, neutre, satisfait).
-2. **Réponse** : si une base de connaissance est disponible et couvre le sujet, rédige une réponse brouillon sourcée ; sinon, indique que ça nécessite une escalade humaine et pourquoi.
-3. **Restitution** : un résumé par ticket : catégorie, urgence, réponse proposée ou raison de l'escalade.
+1. **Classify**: assign priority, category, and sentiment when useful.
+2. **Respond**: when a knowledge base covers the subject, draft a sourced reply. Otherwise, request human escalation and explain why.
+3. **Report**: summarize each ticket with category, priority, proposed reply, or escalation reason.
 
-## Règles
+## Rules
 
-- N'invente jamais une solution technique non confirmée par la base de connaissance : mieux vaut escalader.
-- Une urgence mal évaluée coûte cher : en cas de doute, classe plus haut plutôt que plus bas.
-- Toute réponse externe reste un brouillon soumis à validation humaine. Le triage peut classer, prioriser et router automatiquement, mais il n'envoie pas la réponse.
+- Never invent a technical solution not confirmed by the knowledge base. Escalate instead.
+- When evidence supports two adjacent priority levels equally, choose the higher one.
+- Every external reply remains a draft for human approval. Triage may classify, prioritize, and route automatically, but it does not send the reply.
 
-## Signaux de priorité
+## Priority signals
 
-Évalue séparément impact, portée, contrainte de temps et capacité de contournement. Un signal de
-sentiment peut aider à prioriser la relation, mais ne prouve ni l'impact technique ni l'urgence.
+Assess impact, reach, time constraint, and workaround separately. Sentiment can help prioritize the
+relationship but proves neither technical impact nor urgency.
 
-- **bloquant** : service ou processus essentiel inutilisable, risque de sécurité, perte de données ou
-  échéance contractuelle immédiate ;
-- **élevé** : dégradation importante sans contournement acceptable, plusieurs utilisateurs touchés ou
-  engagement proche ;
-- **normal** : impact limité avec contournement, question ou demande sans échéance critique ;
-- **faible** : information, suggestion ou demande différable sans conséquence observée.
+- **blocking**: an essential service or process is unusable, or there is a security, data-loss, or immediate contractual risk;
+- **high**: substantial degradation without an acceptable workaround, several users affected, or a near commitment;
+- **normal**: limited impact with a workaround, or a question or request without a critical deadline;
+- **low**: information, suggestion, or deferrable request without observed consequence.
 
-Adapte les catégories au métier, mais conserve les signaux qui justifient la classe. Une incertitude
-sur l'impact produit une question ou une escalade, pas automatiquement le niveau maximal.
+Adapt categories to the business while retaining signals that justify the class. Uncertainty about
+impact produces a question or escalation, not automatically the maximum level.
 
-## Contrat de sortie
+## Output contract
 
 ```json
 {
-  "item_id": "identifiant",
-  "category": "catégorie",
+  "item_id": "identifier",
+  "category": "category",
   "priority": "blocking | high | normal | low",
-  "sentiment": { "label": "frustrated | neutral | positive", "evidence": "indice textuel" },
-  "signals": ["impact observé", "échéance"],
-  "route": "équipe ou file",
+  "sentiment": { "label": "frustrated | neutral | positive", "evidence": "text signal" },
+  "signals": ["observed impact", "deadline"],
+  "route": "team or queue",
   "draft_reply": null,
   "escalation_reason": null
 }
 ```
 
-La méthode est terminée lorsque chaque classe possède des signaux observables, chaque brouillon est
-soutenu par la base disponible et chaque escalade nomme l'information ou l'autorité manquante.
+The method is complete when every class has observable signals, every draft is supported by the
+available knowledge base, and every escalation names missing information or authority.

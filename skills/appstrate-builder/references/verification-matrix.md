@@ -1,17 +1,17 @@
-# Matrice de vérification
+# Verification matrix
 
-Renseigner une ligne par cible et par capacité importante.
+Complete one row per target and important capability.
 
-| Cible | Composant | Disponible | Installé | Activé | Connecté | Test réel | Preuve |
+| Target | Component | Available | Installed | Enabled | Connected | Real test | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| local ou cloud | package ou service | oui ou non | version | application | identité | résultat | identifiant du run ou contrôle |
+| local or cloud | package or service | yes or no | version | application | identity | result | run ID or check |
 
-## Preuves minimales
+## Minimum evidence
 
-- Identité : instance, organisation, application, utilisateur et rôle confirmés dans l'interface utilisée.
-- Package : identifiant canonique, version et fichiers attendus relus après import.
-- Intégration : outils requis visibles, scopes minimaux et connexion du bon compte.
-- Agent : dépendances résolues, entrée représentative, état terminal, sortie métier et logs inspectés.
-- Parité : mêmes contrôles exécutés séparément sur local et cloud.
+- Identity: instance, organization, application, user, and role confirmed in the interface used.
+- Package: canonical identifier, version, and expected files reread after import.
+- Integration: required tools visible, minimum scopes, and correct account connected.
+- Agent: resolved dependencies, representative input, terminal state, business output, and logs inspected.
+- Parity: the same checks executed separately on local and cloud targets.
 
-Un élément non testé reste « configuré » ou « à vérifier », jamais « fonctionnel ».
+An untested item remains "configured" or "to verify," never "functional."

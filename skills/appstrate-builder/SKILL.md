@@ -1,106 +1,103 @@
 ---
 name: appstrate-builder
-description: Concevoir, auditer, configurer, déployer et valider une implantation Appstrate pour une organisation et ses équipes. Utiliser pour installer ou reprendre une instance locale ou cloud, configurer organisations, applications, modèles, intégrations, connexions et skills, créer des agents, préparer le déploiement aux équipes et vérifier la mise en service avec le MCP ou la CLI Appstrate.
+description: Design, audit, configure, deploy, and validate an Appstrate implementation for an organization and its teams. Use for new or existing local and cloud instances, organizations, applications, models, integrations, connections, skills, agents, team rollout, or go-live verification through the Appstrate MCP server or CLI.
 ---
 
-# Déployer Appstrate dans une organisation
+# Deploy Appstrate in an organization
 
-Construis une implantation exploitable par les architectes IA et les équipes, depuis l'inventaire de
-l'instance jusqu'aux premiers usages prouvés. Appuie chaque décision sur le contrat vivant de
-l'instance ciblée. Ne présume ni des packages installés, ni des opérations disponibles.
+Build an implementation that AI architects and teams can operate, from instance inventory through
+proven end-to-end use cases. Base every decision on the live contract of the target instance. Do not
+assume that a package, operation, or capability is available.
 
-## 1. Confirmer la cible et l'interface
+## 1. Confirm the target and interface
 
-Fixe l'instance, l'organisation, l'application, l'utilisateur et son rôle avant toute mutation.
+Fix the instance, organization, application, user, and role before any mutation.
 
-Préfère le MCP Appstrate lorsqu'il est déjà connecté à la bonne organisation. Appelle `get_me`, puis
-découvre l'opération requise avec la recherche et la description d'opérations disponibles. Utilise la
-CLI si le MCP manque, si un fichier local doit être transmis ou si l'utilisateur la demande. Dans ce
-cas, lis l'aide installée et confirme le profil avec `appstrate -p PROFILE whoami`.
+Prefer the Appstrate MCP server when it is already connected to the correct organization. Call
+`get_me`, then discover the required operation through the available search and describe tools. Use
+the CLI when MCP is unavailable, a local file must be transferred, or the user requests it. Read the
+installed help and confirm the profile with `appstrate -p PROFILE whoami`.
 
-Une preuve MCP ne confirme pas une cible CLI, et inversement. Vérifie de nouveau la cible dans
-l'interface qui exécutera une modification.
+MCP evidence does not confirm a CLI target, and CLI evidence does not confirm an MCP target. Verify
+the target again through the interface that will perform the mutation.
 
-## 2. Inventorier l'implantation réelle
+## 2. Inventory the live implementation
 
-Relève les éléments utiles au besoin : organisations, applications, utilisateurs, rôles, modèles,
-intégrations, connexions, skills, agents et exécutions. Pour chaque capacité, distingue quatre états :
+Inspect the organizations, applications, users, roles, models, integrations, connections, skills,
+agents, and runs relevant to the request. Distinguish four states for every capability:
 
-1. disponible dans le catalogue ;
-2. installée dans l'organisation ;
-3. activée pour l'application ;
-4. connectée et testée pour l'utilisateur concerné.
+1. available in the catalog;
+2. installed in the organization;
+3. enabled for the application;
+4. connected and tested for the relevant user.
 
-Consigne les écarts entre local et cloud sans considérer l'un comme une copie implicite de l'autre.
-Lis [references/verification-matrix.md](references/verification-matrix.md) pour structurer l'audit.
+Record local and cloud differences explicitly. Neither environment is an implicit copy of the other.
+Use [references/verification-matrix.md](references/verification-matrix.md) to structure the audit.
 
-## 3. Concevoir le déploiement
+## 3. Design the rollout
 
-Définis les équipes, leurs cas d'usage, les applications Appstrate nécessaires, les accès et les
-responsables opérationnels. Commence par un parcours représentatif et mesurable. Étends ensuite le
-déploiement lorsque le premier parcours est prouvé.
+Define the teams, use cases, Appstrate applications, access boundaries, and operational owners. Start
+with one representative, measurable workflow. Expand only after that workflow has been proven.
 
-Sépare les responsabilités :
+Keep ownership clear:
 
-- une intégration fournit l'accès à un service ;
-- une skill porte une méthode réutilisable ;
-- un agent assemble une méthode, des accès et une configuration propre à un usage ;
-- une application distribue cet ensemble à un groupe d'utilisateurs.
+- an integration provides access to a service;
+- a skill owns a reusable method;
+- an agent combines methods, access, and deployment-specific configuration;
+- an application distributes that system to a user group.
 
-Lis [references/deployment-lifecycle.md](references/deployment-lifecycle.md) pour le passage du pilote
-à l'exploitation.
+Read [references/deployment-lifecycle.md](references/deployment-lifecycle.md) when moving from pilot to
+production.
 
-## 4. Charger la bonne skill compagne
+## 4. Load the right companion skill
 
-Ce kit utilise des skills autonomes qui peuvent être installées ensemble ou séparément :
+The Appstrate Skills collection contains independent skills that can be installed together or alone:
 
-| Besoin | Skill à charger |
+| Need | Skill to load |
 | --- | --- |
-| Découvrir et prioriser des automatisations avec un utilisateur | `copilot` |
-| Choisir entre plusieurs intégrations ou modes d'accès | `connector-choice` |
-| Créer, modifier ou valider un agent Appstrate | `agent-authoring` |
-| Créer ou améliorer une méthode réutilisable | `skill-authoring` |
-| Effectuer une recherche web depuis Appstrate | `web-search` |
-| Configurer les MCP Google Workspace et leurs accès Google Cloud | `appstrate-google-workspace` |
+| Discover and prioritize automations with a user | `copilot` |
+| Choose between integrations or access modes | `connector-choice` |
+| Create, update, or validate an Appstrate agent | `agent-authoring` |
+| Create or improve a reusable method | `skill-authoring` |
+| Run web research through Appstrate | `web-search` |
+| Configure Google Workspace MCP and Google Cloud access | `appstrate-google-workspace` |
 
-Dans Appstrate, cherche la skill accessible dont le nom non scopé correspond, puis résous son
-identifiant canonique `@scope/name` avant de la lire. Dans un agent de coding, utilise le catalogue de
-skills local par son nom. Si la skill manque, signale la dépendance à installer. N'invente ni son
-contenu, ni un scope `@appstrate`.
+In Appstrate, find the accessible skill with the matching unscoped name, then resolve its canonical
+`@scope/name` identifier before loading it. In a coding agent, use the local skill catalog. When a
+companion is missing, report the dependency to install instead of inventing its content or scope.
 
-## 5. Installer et distribuer les skills
+## 5. Install and distribute skills
 
-Conserve une source portable avec un `SKILL.md` standard et ses ressources relatives. Pour Appstrate,
-importe chaque archive de skill séparément afin que le fichier `SKILL.md` soit à la racine de
-l'archive. L'organisation cible attribue son scope lors de l'import.
+Keep portable source folders with a standard `SKILL.md` and relative resources. Import each skill ZIP
+separately into Appstrate so `SKILL.md` sits at the archive root. The target organization assigns its
+scope during import.
 
-Pour un agent de coding, installe le dossier complet selon le répertoire de skills pris en charge par
-l'outil. Pour Appstrate, affecte ensuite les skills pertinentes aux applications ou agents qui les
-consomment. La visibilité et les mécanismes d'activation peuvent évoluer. Découvre les capacités de
-l'instance au lieu de dépendre d'un marqueur expérimental.
+For a coding agent, install the complete folder in the supported skill directory. In Appstrate,
+attach the relevant skills to the applications or agents that consume them. Discover visibility and
+activation features from the target instance instead of relying on an experimental marker.
 
-Lis [references/skill-portability.md](references/skill-portability.md) avant de partager le kit entre
-plusieurs organisations ou environnements.
+Read [references/skill-portability.md](references/skill-portability.md) before sharing skills across
+organizations or environments.
 
-## 6. Configurer, puis prouver
+## 6. Configure, then prove
 
-Valide chaque artefact contre le schéma courant avant de le persister. Accorde uniquement les
-permissions nécessaires au scénario. Garde les secrets dans les surfaces de connexion prévues.
+Validate every artifact against the current schema before persistence. Grant only the permissions
+required by the use case and keep secrets in the supported connection surfaces.
 
-Teste en trois temps :
+Test in three stages:
 
-1. une lecture sans effet externe ;
-2. un run réel avec une entrée représentative ;
-3. la relecture de l'état persisté, du résultat et des logs.
+1. a read-only operation with no external effect;
+2. a real run with representative input;
+3. inspection of persisted state, output, and logs.
 
-Un statut technique réussi ne suffit pas si la sortie métier contient un échec. Une configuration
-locale ne prouve pas le cloud. Lorsque les deux cibles sont demandées, répète les contrôles sur chacune.
+A successful technical status is insufficient when the business output contains an error. A local
+configuration does not prove cloud behavior. Repeat the controls on every requested target.
 
-## 7. Livrer le dossier de déploiement
+## 7. Deliver the deployment record
 
-Restitue les cibles vérifiées, les packages et versions installés, les connexions testées, les agents
-prouvés, les utilisateurs ou applications couverts, les décisions humaines restantes et les risques.
-N'annonce une capacité comme fonctionnelle que si son test observable a réussi sur la cible annoncée.
+Report the verified targets, installed package versions, tested connections, proven agents, covered
+users or applications, remaining human decisions, and risks. Call a capability functional only when
+an observable test passed on the stated target.
 
-Le travail est terminé lorsque l'organisation peut reproduire l'installation, identifier le
-propriétaire de chaque composant et exécuter au moins un parcours représentatif de bout en bout.
+The implementation is complete when the organization can reproduce the installation, identify the
+owner of every component, and run at least one representative workflow end to end.

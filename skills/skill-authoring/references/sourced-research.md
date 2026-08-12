@@ -1,46 +1,46 @@
-# Recherche sourcée (web)
+# Sourced web research
 
-## Objectif
+## Objective
 
-Rechercher de l'information à jour sur un sujet, un concurrent ou un marché, et produire une synthèse structurée et sourcée.
+Research current information about a topic, competitor, or market and produce a structured, sourced
+synthesis.
 
-## Méthode
+## Method
 
-1. **Cadrage** : précise ce qui est recherché (sujet, période, angle) avant de lancer la recherche.
-2. **Recherche** : plusieurs requêtes complémentaires plutôt qu'une seule ; privilégie les sources primaires (site officiel, communiqué, doc produit) aux agrégateurs.
-3. **Synthèse** : organise par thème, pas par source ; chaque affirmation cite sa source (nom + lien si disponible).
-4. **Fraîcheur** : signale la date des sources trouvées, surtout sur un sujet qui évolue vite (pricing, feature, actualité).
+1. **Frame**: specify the topic, period, and angle before searching.
+2. **Search**: use several complementary queries and prefer primary sources such as official sites, releases, and product documentation over aggregators.
+3. **Synthesize**: organize by theme rather than source and cite every claim with source name and link.
+4. **Freshness**: report source dates, especially for fast-changing subjects such as pricing, features, and news.
 
-## Règles
+## Rules
 
-- Aucune affirmation sans source identifiable : une recherche sourcée n'est pas une opinion générale reformulée.
-- Signale explicitement une information contradictoire entre sources plutôt que de trancher arbitrairement.
-- Une recherche qui ne remonte rien de solide : dis-le, ne comble pas avec de la connaissance générale non vérifiée.
+- Make no claim without an identifiable source.
+- Explicitly report contradictory information instead of choosing arbitrarily.
+- When research finds no solid evidence, say so rather than filling gaps with unverified knowledge.
 
-## Plan de recherche
+## Research plan
 
-Décompose la question en affirmations à vérifier avant d'interroger le web. Pour chacune, définis la
-source qui ferait autorité, puis une source indépendante de contrôle lorsque l'enjeu le justifie.
-Arrête la collecte quand chaque affirmation importante possède une preuve suffisante ou quand les
-requêtes nouvelles ne changent plus la synthèse.
+Break the question into claims to verify before searching. For each, identify the authoritative source
+and an independent control source when warranted. Stop when each important claim has sufficient
+evidence or new queries no longer change the synthesis.
 
-Hiérarchie indicative : document officiel ou donnée primaire, documentation ou déclaration du sujet,
-publication spécialisée identifiable, agrégateur. Une source plus basse peut orienter la recherche,
-mais elle ne doit pas remplacer une source primaire facilement disponible.
+Indicative hierarchy: official document or primary data, subject documentation or statement,
+identifiable specialist publication, aggregator. A lower source can guide discovery but should not
+replace an easily available primary source.
 
-## Matrice de preuves
+## Evidence matrix
 
 ```json
 {
-  "claim": "affirmation précise",
+  "claim": "precise claim",
   "status": "confirmed | disputed | unsupported",
   "sources": [{ "title": "...", "url": "...", "published_at": null }],
-  "notes": "portée, méthode ou contradiction"
+  "notes": "scope, method, or contradiction"
 }
 ```
 
-Rédige la synthèse par thème à partir de cette matrice, puis fournis les sources. Signale les dates de
-consultation pour les pages sans date et distingue date de publication et date de l'événement.
+Write the synthesis by theme from this matrix, then provide sources. Include access dates for undated
+pages and distinguish publication date from event date.
 
-La recherche est terminée lorsque les affirmations principales sont confirmées, contestées ou
-marquées sans preuve, et que le lecteur peut retrouver la source de chacune.
+Research is complete when major claims are confirmed, disputed, or marked unsupported and the reader
+can recover each source.
