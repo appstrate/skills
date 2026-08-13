@@ -1,0 +1,4 @@
+interface:
+  display_name: "Appstrate Builder"
+  short_description: "Deploy Appstrate for an organization"
+  default_prompt: "Use $appstrate-builder to audit, configure, and deploy this Appstrate organization."

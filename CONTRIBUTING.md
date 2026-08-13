@@ -7,7 +7,7 @@ Two ways to contribute.
 If your skill lives in your own repo (anywhere), just add a line to [`COMMUNITY.md`](./COMMUNITY.md):
 
 1. Fork this repo
-2. Add one line under the right section, following the format: `- [your-repo-path](https://github.com/…) — one-sentence description`
+2. Add one line under the right section, following the format: `- [your-repo-path](https://github.com/…): one-sentence description`
 3. Open a PR
 
 Rules:
@@ -28,13 +28,13 @@ Open an issue **before** writing a new first-party skill so we can align on scop
 
 ```
 skills/<name>/
-├── SKILL.md          # required — YAML frontmatter + instructions
-├── references/       # optional — deep-dive docs loaded on demand
+├── SKILL.md          # required: YAML frontmatter + instructions
+├── references/       # optional: deep-dive docs loaded on demand
 │   ├── setup.md
 │   └── ...
-├── scripts/          # optional — executable helpers
+├── scripts/          # optional: executable helpers
 │   └── pack.sh
-└── templates/        # optional — scaffolding files
+└── templates/        # optional: scaffolding files
     └── manifest.json
 ```
 
@@ -50,7 +50,7 @@ description: <long, keyword-rich description. Names CLI commands, API routes, fi
 
 <one-paragraph summary>
 
-## <sections — see existing skills for structure>
+## <sections: see existing skills for structure>
 ```
 
 ### Tone
@@ -69,4 +69,4 @@ Before opening a PR, drop the skill folder into your own agent's skills director
 
 ## License
 
-By contributing, you agree your contribution is licensed under Apache 2.0 (for first-party skills in this repo). Community skills keep their own license — we only link to them.
+By contributing, you agree your contribution is licensed under Apache 2.0 (for first-party skills in this repo). Community skills keep their own license; we only link to them.

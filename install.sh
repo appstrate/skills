@@ -7,6 +7,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --claude
 #   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --cursor
 #   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --antigravity
+#   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --codex
 #   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --universal
 #   curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s <skill-name> --update
 #
@@ -30,7 +31,7 @@ TARGET_AGENT=""
 
 # --- Parse args ---
 if [ "$#" -eq 0 ]; then
-  echo "Usage: install.sh <skill-name> [--claude|--cursor|--antigravity|--universal]" >&2
+  echo "Usage: install.sh <skill-name> [--claude|--cursor|--antigravity|--codex|--universal]" >&2
   echo "Example: curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh | bash -s appstrate" >&2
   exit 1
 fi
@@ -40,6 +41,7 @@ while [ "$#" -gt 0 ]; do
     --claude)       TARGET_AGENT="claude" ;;
     --cursor)       TARGET_AGENT="cursor" ;;
     --antigravity)  TARGET_AGENT="antigravity" ;;
+    --codex)        TARGET_AGENT="codex" ;;
     --universal)    TARGET_AGENT="universal" ;;
     --update|--upgrade)
       # Idempotent re-install: pull latest skill from main and overwrite
@@ -78,6 +80,7 @@ detect_agent() {
   [ -d "$HOME/.claude" ]             && found="$found claude"
   [ -d "$HOME/.cursor" ]             && found="$found cursor"
   [ -d "$HOME/.gemini/antigravity" ] && found="$found antigravity"
+  [ -d "$HOME/.codex" ]              && found="$found codex"
 
   # Trim leading space
   found="${found# }"
@@ -96,7 +99,7 @@ detect_agent() {
     return
   fi
 
-  # Multiple — ask
+  # Multiple: ask
   echo "Multiple coding agents detected: $found" >&2
   echo "Pick one by re-running with an explicit flag:" >&2
   for a in $found; do echo "  --$a" >&2; done
@@ -111,6 +114,7 @@ if [ -z "$TARGET_AGENT" ]; then
     echo "  --claude       install to ~/.claude/skills/" >&2
     echo "  --cursor       install to ./.cursor/skills/ (current project)" >&2
     echo "  --antigravity  install to ~/.gemini/antigravity/skills/" >&2
+    echo "  --codex        install to ~/.codex/skills/" >&2
     echo "  --universal    install to ./.agent/skills/ (current project)" >&2
     exit 2
   fi
@@ -122,6 +126,7 @@ case "$TARGET_AGENT" in
   claude)       DEST="$HOME/.claude/skills/$SKILL" ;;
   cursor)       DEST="$(pwd)/.cursor/skills/$SKILL" ;;
   antigravity)  DEST="$HOME/.gemini/antigravity/skills/$SKILL" ;;
+  codex)        DEST="$HOME/.codex/skills/$SKILL" ;;
   universal)    DEST="$(pwd)/.agent/skills/$SKILL" ;;
   *)
     echo "Unknown agent: $TARGET_AGENT" >&2

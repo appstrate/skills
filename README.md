@@ -1,34 +1,58 @@
-# Appstrate Skills, archive
+# Appstrate Skills
 
-This repository no longer distributes an active Appstrate agent skill. The former `appstrate` skill is retained under `_archives/appstrate` for historical reference only and must not be installed or exposed.
+This repository publishes portable skills for people who design, configure, and operate Appstrate
+inside an organization. The same source folders work in coding agents and can be imported into an
+Appstrate organization.
 
-**License:** Apache 2.0 (first-party skills). Community links on this page point to their own licenses.
+These skills are optional. An Appstrate instance does not need to ship them by default. Each
+organization can install the skills it needs under its own scope.
 
-## Active skills
+## Available skills
 
-None. The installer remains in the repository for historical compatibility, but there is no supported skill to install.
+| Skill | Purpose |
+| --- | --- |
+| [`appstrate-builder`](skills/appstrate-builder/) | Audit, design, deploy, and validate an Appstrate implementation |
+| [`copilot`](skills/copilot/) | Discover useful automations with users and choose the right execution form |
+| [`connector-choice`](skills/connector-choice/) | Select the best access path for a service |
+| [`agent-authoring`](skills/agent-authoring/) | Create, update, and prove an Appstrate agent |
+| [`skill-authoring`](skills/skill-authoring/) | Create or improve a reusable method |
+| [`web-search`](skills/web-search/) | Run source-backed web research through Appstrate |
+| [`appstrate-google-workspace`](skills/appstrate-google-workspace/) | Configure and diagnose Google Workspace MCP servers |
+
+The 14 business methods included in this repository are internal references of `skill-authoring`.
+They provide authoring material when an organization needs a method. They are not distributed as
+standalone skills.
+
+See [`APPSTRATE-SKILLS.md`](APPSTRATE-SKILLS.md) for installation and packaging instructions.
+
+## Install in a coding agent
+
+The installer installs one skill at a time:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/appstrate/skills/main/install.sh \
+  | bash -s appstrate-builder
+```
+
+Options are available for Codex, Claude Code, Cursor, Google Antigravity, and a universal project
+path. Run `bash install.sh --help` from a local clone for the complete usage reference.
+
+## Import into Appstrate
+
+Build the collection, then import each ZIP from the generated `packages` directory. Every package
+places `SKILL.md` at the archive root and can be imported independently into the target organization.
+
+```bash
+bash scripts/build-appstrate-skills.sh
+```
 
 ## Community skills
 
-A curated awesome-list of skills that work well alongside Appstrate, maintained by the community: **[COMMUNITY.md](./COMMUNITY.md)**.
-
-Open a PR editing that file to add yours — no gate-keeping, just keep it related and linkable.
-
-## Supported coding agents
-
-| Agent | Install path (per-user) | Install path (per-project) |
-|---|---|---|
-| [Claude Code](https://docs.claude.com/en/docs/claude-code) | `~/.claude/skills/<name>/` | `.claude/skills/<name>/` |
-| [Cursor](https://cursor.com/docs/skills) | — | `.cursor/skills/<name>/` |
-| [Google Antigravity](https://antigravity.google/docs/skills) | `~/.gemini/antigravity/skills/<name>/` | `.agent/skills/<name>/` |
-| Windsurf, Aider, any AGENTS.md-aware agent | — | `.agent/skills/<name>/` (via [OpenSkills](https://github.com/numman-ali/openskills)) |
-
-## What is an Agent Skill?
-
-A directory with a `SKILL.md` file. The markdown has YAML frontmatter (`name`, `description`) that tells your agent when to use it, followed by instructions, references, and scripts the agent can load on demand. Standard introduced by [Anthropic](https://github.com/anthropics/skills); now supported (with minor path variations) by every major coding agent.
-
-The `description` field matters: that's what your agent reads to decide whether to load the skill for a given request. Keep it rich, keyword-dense, and specific to triggers.
+See [`COMMUNITY.md`](COMMUNITY.md) for community-maintained skills that work with Appstrate.
 
 ## Contributing
 
-See **[CONTRIBUTING.md](./CONTRIBUTING.md)** — two paths: add a first-party skill (PR a folder under `skills/`) or link your own repo (PR a line in `COMMUNITY.md`).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) to propose a first-party skill or list a community skill.
+
+First-party skills use the Apache 2.0 license. Adapted components retain the notices stored in their
+skill directory.
