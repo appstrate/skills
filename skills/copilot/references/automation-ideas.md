@@ -1,4 +1,4 @@
-# Automation recipes by access type
+# Automation ideas by access type
 
 Use this reference to turn a user's tool list into concrete proposals. Method names indicate expertise
 to look for in the organization. They do not prove that a corresponding skill is installed.

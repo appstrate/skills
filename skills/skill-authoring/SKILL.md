@@ -1,6 +1,6 @@
 ---
 name: skill-authoring
-description: Create or improve an organization-owned method skill. Load this guide when a method is missing, triggers incorrectly, guides execution poorly, or must be simplified, including when agent-authoring delegates this branch. It contains reference methods to read only when they match the need.
+description: Find, adapt, create, or improve an organization-owned method skill. Load this guide when a method is missing, triggers incorrectly, guides execution poorly, or must be simplified, including when agent-authoring delegates this branch. It searches organizational and external skills before authoring a new method.
 ---
 
 # Create or improve a method skill
@@ -8,8 +8,9 @@ description: Create or improve an organization-owned method skill. Load this gui
 Use this guide after confirming that the need belongs to a reusable method. If the request concerns
 agent assembly, integrations, its prompt, or its trigger, return that branch to `agent-authoring`.
 
-The expected result is a method that several organizational agents can share. Preserve a good
-existing method instead of creating a competing variant.
+The expected result is a method that several organizational agents can share. Reuse a suitable
+existing skill before adapting one, and adapt a credible external skill before creating a competing
+method from scratch.
 
 ## Source of truth and interface
 
@@ -27,11 +28,10 @@ it is missing, report the dependency instead of assuming a scope.
 
 ## Reference method library
 
-Use this library as a starting point when no organizational skill owns the method yet. After checking
-existing skills, choose the branch that matches the need and read only the linked file. First discover
-and describe the current operation for reading a package file, then request the exact path in the
-link. Do not load the full file index or the entire library. If no branch matches, derive the method
-from the observed need.
+Use this library only after organizational and external discovery found no reusable package. Choose
+the branch that matches the need and read only the linked file. First discover and describe the current
+operation for reading a package file, then request the exact path in the link. Do not load the full
+file index or the entire library. If no branch matches, derive the method from the observed need.
 
 - Review a diff or pull request: [code review](references/code-review.md)
 - Write publishable content or a marketing message: [content writing](references/content-writing.md)
@@ -54,23 +54,31 @@ the organization's scope. The reference never becomes an agent dependency.
 
 ## Process
 
-### 1. Choose creation or improvement
+### 1. Reuse, adapt, or create
 
 Look for an organizational skill that already owns the same conceptual need. Read ambiguous
 candidates before deciding.
 
 - Improve the existing skill when its intent and boundary match.
-- Create a new skill only when no method has the same conceptual owner.
 - Keep the name stable during an improvement. A defect does not justify a suffix or duplicate.
+- When no organizational skill fits, read [external skill discovery](references/external-skill-discovery.md)
+  and search for a credible reusable candidate before authoring a new method.
+- Reuse an external skill when its method, runtime assumptions, and license fit the organization.
+- Adapt it when the method fits but its interface or context does not. Preserve required attribution,
+  license text, and change notices in the resulting package.
+- Create a new skill only when no organizational, external, or reference method fits.
 
-If no existing skill fits, consult one relevant branch of the library above. A reference accelerates
-creation, but the actual objective, available access, and observed cases remain the source of truth.
+If no existing package fits, consult one relevant branch of the reference library above. A reference
+accelerates creation, but the actual objective, available access, and observed cases remain the source
+of truth.
 
 Before modifying a skill, discover current operations for reading its draft, published versions, and
 package files. Read all relevant files, not only the main content. Identify the published baseline,
 changes already present in the draft, and the concurrency mechanism required by the update operation.
 
-This step is complete when you can name the failing rule, its current source, and affected consumers.
+This step is complete when you can name the selected source, explain why stronger candidates were
+rejected, and identify the affected consumers. Do not import, install, publish, or execute an external
+package until the user approves the reviewed candidate.
 
 ### 2. Keep only the method
 
@@ -131,6 +139,13 @@ body.
 A check in which the method or expected result was already present in context does not prove
 triggering.
 
+## Triggering
+
+- Positive: "Find an existing skill for preparing customer meetings before we create one."
+- Positive: "Our invoice extraction skill misses tax fields. Improve the shared method."
+- Near-miss: "Connect our Gmail account to the support agent." This belongs to access configuration,
+  not method authoring.
+
 ## Improvement loop
 
 Apply this loop before proposing publication of a change:
@@ -159,7 +174,8 @@ method automatically. Publication remains a separate human decision.
 
 Consider the draft ready to propose only when:
 
-- no existing skill already owns the need, or the existing one was improved;
+- organizational and external candidates were checked before creating a new skill;
+- no suitable skill already owns the need, or the existing one was reused, adapted, or improved;
 - all relevant files and the published baseline were read;
 - every instruction belongs to the method, not an agent instance;
 - both descriptions drive the correct action for their reader;

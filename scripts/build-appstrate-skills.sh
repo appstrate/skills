@@ -19,7 +19,7 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$stage_dir/skills" "$stage_dir/packages" "$dist_dir"
-cp "$repo_dir/APPSTRATE-SKILLS.md" "$stage_dir/GUIDE.md"
+cp "$repo_dir/README.md" "$stage_dir/GUIDE.md"
 cp "$repo_dir/LICENSE" "$stage_dir/LICENSE"
 
 for skill_name in $skills; do

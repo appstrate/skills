@@ -67,7 +67,7 @@ Use these families as prompts, then adapt them to the actual context:
 - engineering: change review, issue triage, open-work synthesis.
 
 When the user's tools are known but proposals remain too abstract, read
-[references/automation-recipes.md](references/automation-recipes.md). It groups concrete outcomes by
+[references/automation-ideas.md](references/automation-ideas.md). It groups concrete outcomes by
 access family without assuming that a specific connector is installed.
 
 The descriptions of organizational skills are the current catalog of reusable methods. The idea
