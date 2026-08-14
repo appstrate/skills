@@ -8,7 +8,7 @@ execution.
 
 ## Search order
 
-Load the accessible `web-search` skill because public catalogs and repositories change frequently.
+Load the accessible `appstrate-web-search` skill because public catalogs and repositories change frequently.
 Search in this order and stop when an authoritative source provides an exact, reviewable match:
 
 1. the product or service vendor's official skill or plugin repository;

@@ -1,9 +1,9 @@
 ---
-name: connector-choice
-description: Choose how an agent should connect to a service. Load this guide when multiple connectors or access modes are plausible, or when no adequate connector is installed. It compares live candidates by required coverage, connection effort, provenance, and least privilege.
+name: appstrate-connector-choice
+description: Choose how an Appstrate agent should connect to a service. Load this guide when multiple Appstrate integrations, connectors, or access modes are plausible, or when no adequate connector is installed. It compares candidates from the live Appstrate catalog by required coverage, connection effort, provenance, and least privilege.
 ---
 
-# Choose a connector
+# Choose an Appstrate connector
 
 Select the access path that covers the real requirement with the least configuration and privilege.
 The live catalog owns technical details. This guide owns the decision.

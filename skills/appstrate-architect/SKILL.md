@@ -1,9 +1,9 @@
 ---
-name: appstrate-builder
-description: Design, audit, configure, deploy, and validate an Appstrate implementation for an organization and its teams. Use for new or existing local and cloud instances, organizations, applications, models, integrations, connections, skills, agents, team rollout, or go-live verification through the Appstrate MCP server or CLI.
+name: appstrate-architect
+description: Architect, audit, configure, deploy, and validate an Appstrate implementation for an organization and its teams. Use for new or existing local and cloud instances, organizations, applications, models, integrations, connections, skills, agents, team rollout, or go-live verification through the Appstrate MCP server or CLI.
 ---
 
-# Deploy Appstrate in an organization
+# Architect and deploy Appstrate in an organization
 
 Build an implementation that AI architects and teams can operate, from instance inventory through
 proven end-to-end use cases. Base every decision on the live contract of the target instance. Do not
@@ -55,11 +55,11 @@ The Appstrate Skills collection contains independent skills that can be installe
 
 | Need | Skill to load |
 | --- | --- |
-| Discover and prioritize automations with a user | `copilot` |
-| Choose between integrations or access modes | `connector-choice` |
-| Create, update, or validate an Appstrate agent | `agent-authoring` |
-| Create or improve a reusable method | `skill-authoring` |
-| Run web research through Appstrate | `web-search` |
+| Discover and prioritize automations with a user | `appstrate-copilot` |
+| Choose between integrations or access modes | `appstrate-connector-choice` |
+| Create, update, or validate an Appstrate agent | `appstrate-agent-authoring` |
+| Create or improve a reusable method | `appstrate-skill-authoring` |
+| Run web research through Appstrate | `appstrate-web-search` |
 | Configure Google Workspace MCP and Google Cloud access | `appstrate-google-workspace` |
 
 In Appstrate, find the accessible skill with the matching unscoped name, then resolve its canonical

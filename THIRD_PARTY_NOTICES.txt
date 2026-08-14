@@ -1,4 +1,4 @@
-This package contains material adapted from the following sources:
+This repository contains material adapted from the following sources:
 
 writing-for-agents and code-review, from mattpocock/skills
 https://github.com/mattpocock/skills
@@ -23,9 +23,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-The skill-creation mechanics were also adapted from OpenAI's skill-creator:
+The appstrate-skill-authoring method and its code-review reference contain material
+adapted from these sources.
+
+The skill-creation mechanics in appstrate-skill-authoring were also adapted from
+OpenAI's skill-creator:
 https://github.com/openai/skills/tree/main/skills/.system/skill-creator
 
-That source is distributed under the Apache License 2.0. This package modifies
-the material for Appstrate's assistant, package model and runtime. A copy of
-the Apache License 2.0 is included in LICENSE.txt.
+That source is distributed under the Apache License 2.0. The adapted material
+is modified for Appstrate's assistant, package model and runtime. A copy of
+the Apache License 2.0 is included in the repository root as LICENSE.
