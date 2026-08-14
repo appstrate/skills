@@ -1,0 +1,4 @@
+interface:
+  display_name: "Appstrate Architect"
+  short_description: "Architect and deploy Appstrate"
+  default_prompt: "Use $appstrate-architect to architect, audit, configure, and deploy this Appstrate organization."

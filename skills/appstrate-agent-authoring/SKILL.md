@@ -1,6 +1,6 @@
 ---
-name: agent-authoring
-description: Assemble, modify, or validate a saved Appstrate agent. Load this guide after choosing that form and before changing an agent package. It resolves dependencies, separates method from instance, applies least privilege, and requires a real run as proof. It delegates method content to skill-authoring and always rereads current contracts from the MCP.
+name: appstrate-agent-authoring
+description: Assemble, modify, or validate a saved Appstrate agent. Load this Appstrate guide after choosing that form and before changing an agent package. It resolves dependencies, separates method from instance, applies least privilege, and requires a real run as proof. It delegates method content to appstrate-skill-authoring and always rereads current contracts from the MCP.
 ---
 
 # Create or improve an Appstrate agent
@@ -57,9 +57,9 @@ First look for an organizational skill that already owns the conceptual need. Re
 candidates and reuse the matching one even if its name differs from your first choice.
 
 - If the method fits, declare that dependency.
-- If it owns the right need but requires a correction, load `skill-authoring` and improve it. Do not
+- If it owns the right need but requires a correction, load `appstrate-skill-authoring` and improve it. Do not
   create a competing variant.
-- If no method fits, load `skill-authoring`. It may consult its reference library, then creates a skill
+- If no method fits, load `appstrate-skill-authoring`. It may consult its reference library, then creates a skill
   under the organization's scope before the agent.
 
 An authoring skill and its references guide creation. They are not dependencies to attach. This step
@@ -97,7 +97,7 @@ run observation instead of inflating the prompt or skill.
 ### 4. Resolve least-privilege access
 
 Prefer an existing integration that covers the need. If several access forms are possible, load
-`connector-choice` before choosing.
+`appstrate-connector-choice` before choosing.
 
 Read the current details of every selected integration to learn its effective capabilities and
 defaults. Select only the tools and permissions required by the proven scenario. An integration

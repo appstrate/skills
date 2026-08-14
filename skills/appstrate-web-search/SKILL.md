@@ -1,9 +1,9 @@
 ---
-name: web-search
-description: Search the web or read URLs through Appstrate. Load this guide whenever a request requires external web information. It selects a live connector, runs a bounded inline agent, and returns only findings supported by observed sources.
+name: appstrate-web-search
+description: Search the web or read URLs through Appstrate. Load this Appstrate guide whenever a request requires external web information through an Appstrate connector. It selects a live integration and connection, runs a bounded inline agent, and returns only findings supported by observed sources.
 ---
 
-# Search the web through an inline run
+# Search the web through an Appstrate inline run
 
 The chat or coding agent orchestrates the task while an Appstrate agent uses the web connector. The
 result must be grounded in pages that were actually retrieved, with URLs that support every material

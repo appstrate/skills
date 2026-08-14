@@ -11,7 +11,7 @@ output_zip="$dist_dir/$bundle_name.zip"
 work_dir="$(mktemp -d)"
 stage_dir="$work_dir/$bundle_name"
 
-skills="skill-authoring connector-choice web-search appstrate-google-workspace agent-authoring copilot appstrate-builder"
+skills="appstrate-architect appstrate-agent-authoring appstrate-connector-choice appstrate-copilot appstrate-google-workspace appstrate-skill-authoring appstrate-web-search"
 
 cleanup() {
   rm -rf "$work_dir"
@@ -19,8 +19,9 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$stage_dir/skills" "$stage_dir/packages" "$dist_dir"
-cp "$repo_dir/APPSTRATE-SKILLS.md" "$stage_dir/GUIDE.md"
+cp "$repo_dir/README.md" "$stage_dir/GUIDE.md"
 cp "$repo_dir/LICENSE" "$stage_dir/LICENSE"
+cp "$repo_dir/THIRD_PARTY_NOTICES.txt" "$stage_dir/THIRD_PARTY_NOTICES.txt"
 
 for skill_name in $skills; do
   source_dir="$repo_dir/skills/$skill_name"
@@ -30,9 +31,6 @@ for skill_name in $skills; do
   fi
 
   cp -R "$source_dir" "$stage_dir/skills/$skill_name"
-  if [ ! -f "$stage_dir/skills/$skill_name/LICENSE.txt" ]; then
-    cp "$repo_dir/LICENSE" "$stage_dir/skills/$skill_name/LICENSE.txt"
-  fi
   (
     cd "$stage_dir/skills/$skill_name"
     zip -qr "$stage_dir/packages/$skill_name.zip" . \
