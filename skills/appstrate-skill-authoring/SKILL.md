@@ -127,7 +127,24 @@ the same rule. Require verifiable and exhaustive criteria instead of adverbs suc
 Remove advice the model already follows, obsolete branches, and repeated versions of one rule. During
 an improvement, change the smallest surface that explains the observed failure and preserve the rest.
 
-### 5. Verify triggering
+### 5. Publish the package
+
+A skill whose whole method fits in `SKILL.md` is created directly from `{ manifest, content }`
+through the current skill-creation operation. `content` is the markdown itself, not a file tree.
+
+As soon as the package carries companion files — `references/`, `scripts/` — that operation can no
+longer express it, and the package must be imported as an archive. Discover the current import
+operation and read its contract before building the request.
+
+Pack with `scripts/afps-pack.sh SOURCE_DIR OUTPUT.afps`. It requires `manifest.json` at the root of
+the source directory and stores every file flat at the archive root, preserving subdirectories. **A
+wrapping directory inside the archive makes the import fail**, which is the failure this script
+exists to prevent.
+
+Verify the packed archive before importing it, then reread the stored package and confirm its files
+match what was packed.
+
+### 6. Verify triggering
 
 Write two realistic requests that should select the skill and one near-miss that shares its vocabulary
 without requesting the same method. Keep all three in a `Triggering` section of the `SKILL.md` so they
@@ -182,6 +199,7 @@ Consider the draft ready to propose only when:
 - both descriptions drive the correct action for their reader;
 - every step has an observable completion condition;
 - prerequisites are semantic needs with a fallback;
+- companion files, when present, reached the stored package through an archive import;
 - two positive cases and one near-miss were tested in fresh contexts;
 - for an improvement, the comparison changes only one dependency and resolved snapshots prove its
   selection;
