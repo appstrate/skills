@@ -134,6 +134,11 @@ Persist only a valid artifact. Then reread the saved agent and confirm that its 
 and parameters match the validated version. This read must target the same canonical identifier as
 the collision check and mutation.
 
+Rereading the package proves what was stored, not what will run. A space pins its own installed
+version, so an updated package can keep executing the previous one with no error anywhere. Confirm
+the version against the bundle the runtime would resolve, and pin the space's installed version when
+they differ.
+
 ### 7. Prove behavior
 
 Start a first run with realistic input and the intended access level. Wait for a terminal state, then
@@ -145,7 +150,7 @@ and the user's agreement on destination, cadence, and effects.
 
 Verify at minimum:
 
-- resolved dependencies match the expected versions;
+- the resolved bundle carries the expected agent version, not only the expected dependencies;
 - the relevant method was loaded and applied;
 - only necessary capabilities were used;
 - output satisfies every announced observable criterion;
