@@ -134,10 +134,14 @@ Persist only a valid artifact. Then reread the saved agent and confirm that its 
 and parameters match the validated version. This read must target the same canonical identifier as
 the collision check and mutation.
 
-Rereading the package proves what was stored, not what will run. A space pins its own installed
-version, so an updated package can keep executing the previous one with no error anywhere. Confirm
-the version against the bundle the runtime would resolve, and pin the space's installed version when
-they differ.
+Writing a manifest and prompt updates a draft, not what runs. Discover the operations for the three
+distinct states and move through them explicitly: the draft holds the edit, a version freezes it into
+an immutable snapshot, and the space pins which version it installs. Each step reports success on its
+own terms — a draft write returns the new version number while the runtime still resolves the
+previous snapshot, and nothing anywhere reports an error.
+
+Rereading the package therefore proves what was stored, never what will run. **Confirm the version
+against the bundle the runtime would resolve**, and reconcile the missing step when they differ.
 
 ### 7. Prove behavior
 
