@@ -127,6 +127,16 @@ the same rule. Require verifiable and exhaustive criteria instead of adverbs suc
 Remove advice the model already follows, obsolete branches, and repeated versions of one rule. During
 an improvement, change the smallest surface that explains the observed failure and preserve the rest.
 
+When the method processes items in batches, or can run long enough for the agent's working context
+to be summarized mid-run, progress must live outside the conversation. Add a `Progress state` section
+that defines, in business terms, what identifies a processed item (stable identifier, cursor, or
+path), which results are already delivered and must never be produced again, and the next action.
+Tell the agent to record this state with its available state-preservation capabilities after each
+completed batch, not only at the end, and to reread it first whenever it resumes or its context was
+summarized. Do not name a tool. When no durable capability exists, the fallback is a progress file in
+the working directory, updated after each batch. The recorded state wins over recollection: an item
+is done only when the record says so.
+
 ### 5. Publish the package
 
 A skill whose whole method fits in `SKILL.md` is created directly from `{ manifest, content }`
@@ -199,6 +209,7 @@ Consider the draft ready to propose only when:
 - both descriptions drive the correct action for their reader;
 - every step has an observable completion condition;
 - prerequisites are semantic needs with a fallback;
+- a batched or long-running method keeps its progress state outside the conversation;
 - companion files, when present, reached the stored package through an archive import;
 - two positive cases and one near-miss were tested in fresh contexts;
 - for an improvement, the comparison changes only one dependency and resolved snapshots prove its
