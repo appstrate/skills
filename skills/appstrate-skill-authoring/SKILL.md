@@ -26,6 +26,21 @@ When this guide calls `appstrate-agent-authoring`, resolve the accessible skill 
 Appstrate, retain its canonical `@scope/name` identifier. In a coding agent, use the local catalog. If
 it is missing, report the dependency instead of assuming a scope.
 
+## Where you are authoring
+
+Identify your context first: the tools differ, and so does how a draft is tried.
+
+| | Appstrate chat | Local coding agent (Claude Code, Codex) with the Appstrate CLI |
+| --- | --- | --- |
+| Write | the skill-creation and draft-update operations through the MCP, companion files as file operations; or a run builds an archive, validated then imported with the package-file tools | a CLI working folder: `appstrate packages pull`, `status`, `push`, `publish`; a new package with `push --create --space <space>` |
+| Read | the skill and its files through the MCP | the working folder |
+| Try the draft | pin the skill in a conversation: a pinned skill is served as its draft to whoever may write it; run an agent's draft | `appstrate code sync --source draft --target <agent>` writes the drafts into the coding agent's skill directory |
+| Test triggering | a fresh conversation that pins nothing, where the chat chooses among the space's skills by their descriptions | a fresh session with the working folder, or the synced draft, in the coding agent's skill directory |
+| Cannot | reach a workstation's tools, tokens or folders | nothing specific |
+
+This is independent from where the method later runs (step 2): a skill authored in the chat can
+run on a workstation, and the reverse.
+
 ## Reference method library
 
 Use this library only after organizational and external discovery found no reusable package. Choose
@@ -164,11 +179,10 @@ is done only when the record says so.
 
 ### 5. Publish the package
 
-**From a workstation with the Appstrate CLI**, author in a local working folder: `appstrate
-packages pull` brings the draft into it, `status` shows what the folder would change, `push` writes
-it to the draft with its companion files, binaries included, under the lock the folder last saw, and
-`publish` cuts the version. A new package is created by `push --create --space <space>`, and the
-space is its home: choose it before, since a package cannot later move into a personal space.
+Write through your authoring context (see "Where you are authoring"). A new package's space is its
+home: choose it before creating, since a package cannot later move into a personal space. From the
+CLI, `push` writes the folder to the draft with its companion files, binaries included, under the
+lock the folder last saw.
 
 **Workstations receive what is published.** `appstrate code sync`, run each session by the Appstrate
 plugin for Claude Code, writes the published version of every skill active in the spaces the profile
@@ -180,8 +194,8 @@ instead, which is how a draft is tried on a workstation before anyone else recei
 file operations alongside the manifest: `references/` and `scripts/` travel with them. Discover the
 current contract of each before building the request.
 
-Creating a package publishes its first version at once. Pass the triggering check of step 6 before
-creating it, from the working folder placed in a coding agent's skill directory.
+Creating a package publishes its first version at once. From a coding agent, pass the triggering
+check of step 6 before creating it, from the working folder placed in its skill directory.
 
 Declare in the manifest's skill dependencies every other skill this package relies on: one its
 method tells the agent to load, and one whose files its scripts read or import. The declaration is
@@ -211,9 +225,8 @@ Write two realistic requests that should select the skill and one near-miss that
 without requesting the same method. Keep all three in a `Triggering` section of the `SKILL.md` so they
 remain versioned with the artifact.
 
-In fresh conversations, verify that positive cases load the skill and the near-miss does not. Before
-the package exists, test from the working folder placed in a coding agent's skill directory; once it
-exists, test the draft synced to the workstation (step 5). If
+In fresh conversations of your authoring context (see "Where you are authoring"), verify that
+positive cases load the skill and the near-miss does not. If
 selection is wrong, correct the descriptions. If selection is right but execution fails, correct the
 body.
 
@@ -245,9 +258,9 @@ Apply this loop before proposing publication of a change:
 5. **Decide.** Keep the draft only if it improves positive cases without triggering the near-miss or
    degrading an existing constraint.
 
-For a method that runs on a workstation, compare the same task in two fresh coding-agent sessions,
-one with the published version and one with the draft synced locally, or use the coding agent's
-skill-evaluation tooling when it has some.
+For a method that runs on a workstation, compare the same task in two fresh sessions, one with the
+published version and one with the draft (pinned in the chat, or synced to the coding agent), or use
+the coding agent's skill-evaluation tooling when it has some.
 
 When no published version exists, compare a run without the new skill to the same run with the draft.
 A requested selection absent from the resolved snapshot is not proof.
