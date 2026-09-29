@@ -71,6 +71,10 @@ the organization's scope. The reference never becomes an agent dependency.
 
 ### 1. Reuse, adapt, or create
 
+First look for an organizational skill that sets the organization's own conventions for skills
+(naming, language, where secrets live). Load it and follow it wherever it differs from this guide's
+defaults.
+
 Look for an organizational skill that already owns the same conceptual need. Read ambiguous
 candidates before deciding.
 
@@ -140,7 +144,8 @@ A skill created in the organization has two descriptions that drive two differen
 - `manifest.description` is read by the chat when choosing an agent dependency. Describe the covered
   need, its boundary with neighboring methods, and the expected selection action.
 - the `SKILL.md` frontmatter `description` is read by the runtime agent. Describe the situations in
-  which the agent should open this method to perform its task.
+  which the agent should open this method to perform its task, with the phrases users actually say
+  and the neighboring skills that take over beyond its boundary.
 
 Write them separately. The body cannot repair a description that triggers the wrong action.
 
@@ -159,6 +164,9 @@ Organize the body in execution order:
 
 Keep material required on every run in the main file. Put a large reference or rare variant in a
 separate file only when it belongs to the package and the body says exactly when to read it.
+
+Never put a secret in a skill: it lives in an integration's connection or in the organization's
+vault. Date each pitfall verified in execution; state an unverified one as a hypothesis.
 
 State target behavior positively. When a safeguard is necessary, include the authorized fallback in
 the same rule. Require verifiable and exhaustive criteria instead of adverbs such as "carefully" or
@@ -179,16 +187,24 @@ is done only when the record says so.
 
 ### 5. Publish the package
 
-Write through your authoring context (see "Where you are authoring"). A new package's space is its
-home: choose it before creating, since a package cannot later move into a personal space. From the
-CLI, `push` writes the folder to the draft with its companion files, binaries included, under the
-lock the folder last saw.
+Write through your authoring context (see "Where you are authoring"). From the CLI, `push` writes the
+folder to the draft with its companion files, binaries included, under the lock the folder last saw;
+`pull --force` mirrors the package and deletes the local files it does not have, so never use it on a
+folder holding unpushed work.
+
+**Choose the home space before creating.** When the organization has several spaces, the home decides
+who can edit the package and who receives it. Pick it from the people who must receive the skill,
+among the spaces the user may write in, and confirm it with the user. A personal space reaches its
+owner only, and nothing can move into one later.
 
 **Workstations receive what is published.** `appstrate code sync`, run each session by the Appstrate
 plugin for Claude Code, writes the published version of every skill active in the spaces the profile
 belongs to into the coding agents' skill directories. Those are generated copies: never edit them,
 the next sync overwrites them. `appstrate code sync --source draft --target <agent>` writes the drafts
-instead, which is how a draft is tried on a workstation before anyone else receives it.
+instead, which is how a draft is tried on a workstation before anyone else receives it. A Claude Code
+plugin keeps the command the user accepted: when the CLI renames its sync command, workstations stop
+updating without a visible error until the user runs `claude plugin update <plugin>` in a terminal and
+accepts the new one.
 
 **Through the API or the MCP**, the skill-creation operation and the draft-update operation accept
 file operations alongside the manifest: `references/` and `scripts/` travel with them. Discover the

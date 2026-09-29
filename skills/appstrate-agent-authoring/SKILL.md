@@ -106,6 +106,11 @@ dependency without a usable capability is a defect to fix before validation.
 Present the native connection flow when access is missing. Secrets belong in that flow, never in the
 conversation or the agent prompt.
 
+Connections and the agent's memory belong to a space. An agent moved to another space finds neither:
+create its connections there and fix them on its schedule, since that space may hold another account
+for the same integration and the agent would silently pick it. Carry the durable lessons of its memory
+into its skill before the former space is removed.
+
 ### 5. Build against the current contract
 
 Discover and describe the available validation and persistence operations, then build the manifest
