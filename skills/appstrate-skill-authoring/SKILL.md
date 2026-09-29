@@ -93,6 +93,31 @@ When the method assumes a runtime capability, express the semantic need and fall
 preserving durable state between runs or publishing a document. The agent maps that need to
 capabilities exposed by its current schema.
 
+**Decide where the method runs before writing it.** Publishing a skill distributes it; it does not
+force it to run in the cloud. A method runs in an Appstrate agent's sandbox, on a workstation through
+a coding agent (Claude Code, Codex) with the tools and tokens of that machine, or in both: the agent
+on schedule, the workstation for a backlog or a large volume. State the venues in the agent-facing
+description.
+
+A method that runs in both venues keeps one logic and swaps only its transport:
+
+- **A rule that names a command is written wrong.** Rules are stated as operations of the service's
+  API (list the messages, move the file), never as the commands of one tool. Command names live only
+  in a table of the venues and in each venue's step list.
+- Put deterministic logic in a script that knows only the service's API and files, and switch its
+  transport with an option: on a workstation it performs the calls itself with a local token; in an
+  agent it writes the calls it needs, the agent performs them with its integrations, and the script
+  resumes. Responses travel through files, never through the model.
+- Both venues read and write the same state in the same place, so either can resume the other's work.
+- What the rules cannot settle is judged by the agent's model in the agent venue. On a workstation
+  it defaults to a sub-agent of the coding session, which costs no metered run and keeps the data on
+  the machine; launch an Appstrate run instead when the task needs what only the agent has, such as
+  its integrations or a trace in its run history.
+- Flag, where it matters, anything that works in one venue only.
+
+[Two-venue skill template](references/two-venue-skill.md) shows the resulting structure. Read it
+before writing a method that runs in both venues.
+
 ### 3. Write for both readers
 
 A skill created in the organization has two descriptions that drive two different decisions:
@@ -139,12 +164,18 @@ is done only when the record says so.
 
 ### 5. Publish the package
 
-A skill whose whole method fits in `SKILL.md` is created directly from `{ manifest, content }`
-through the current skill-creation operation. `content` is the markdown itself, not a file tree.
+**From a workstation with the Appstrate CLI**, author in a local working folder: `appstrate
+packages pull` brings the draft into it, `status` shows what the folder would change, `push` writes
+it to the draft with its companion files, binaries included, under the lock the folder last saw, and
+`publish` cuts the version. A new package is created by `push --create --space <space>`, and the
+space is its home: choose it before, since a package cannot later move into a personal space.
 
-As soon as the package carries companion files — `references/`, `scripts/` — that operation can no
-longer express it, and the package must be imported as an archive. Discover the current import
-operation and read its contract before building the request.
+**Through the API or the MCP**, the skill-creation operation and the draft-update operation accept
+file operations alongside the manifest: `references/` and `scripts/` travel with them. Discover the
+current contract of each before building the request.
+
+Creating a package publishes its first version at once. Pass the triggering check of step 6 before
+creating it.
 
 Declare in the manifest's skill dependencies every other skill this package relies on: one its
 method tells the agent to load, and one whose files its scripts read or import. The declaration is
@@ -153,13 +184,20 @@ reaches a sibling skill's folder without it works on one machine and fails where
 was never installed. Pin a range the package was tested against, and when a script finds a sibling
 by its folder name, say so in the code: that name is the package's unscoped name.
 
-Pack with `scripts/afps-pack.sh SOURCE_DIR OUTPUT.afps`. It requires `manifest.json` at the root of
+When neither path is available, import the package as an archive. Pack with `scripts/afps-pack.sh
+SOURCE_DIR OUTPUT.afps`. It requires `manifest.json` at the root of
 the source directory and stores every file flat at the archive root, preserving subdirectories. **A
 wrapping directory inside the archive makes the import fail**, which is the failure this script
 exists to prevent.
 
 Verify the packed archive before importing it, then reread the stored package and confirm its files
 match what was packed.
+
+**Do not reuse a package id you have just deleted.** Deleting a package cleans its stored files a
+little later, at paths that depend only on the id and the version; a package recreated under the
+same id in between loses its companion files and its published archive becomes unreadable
+(appstrate/appstrate#1612). Prefer a new id; otherwise wait several minutes, then reread both the
+draft's files and the published archive.
 
 ### 6. Verify triggering
 
@@ -217,7 +255,8 @@ Consider the draft ready to propose only when:
 - every step has an observable completion condition;
 - prerequisites are semantic needs with a fallback;
 - a batched or long-running method keeps its progress state outside the conversation;
-- companion files, when present, reached the stored package through an archive import;
+- companion files, when present, are in the stored draft and in the published archive;
+- the venues are decided, and a method that runs in both keeps command names out of its rules;
 - every other skill the method loads or its scripts read is declared as a skill dependency;
 - two positive cases and one near-miss were tested in fresh contexts;
 - for an improvement, the comparison changes only one dependency and resolved snapshots prove its
