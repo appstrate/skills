@@ -147,7 +147,13 @@ A skill created in the organization has two descriptions that drive two differen
   which the agent should open this method to perform its task, with the phrases users actually say
   and the neighboring skills that take over beyond its boundary.
 
-Write them separately. The body cannot repair a description that triggers the wrong action.
+Write them separately. The body cannot repair a description that triggers the wrong action. Give the
+package a human display name as well: the chat's skill picker shows it.
+
+A tool that synthesizes the manifest from the `SKILL.md` frontmatter at creation (the CLI does)
+copies the agent-facing description into `manifest.description` and the unscoped name into the
+display name, and later pushes of `SKILL.md` never update them. Set both in `manifest.json` yourself,
+and reread them after every change of scope.
 
 Frontmatter includes at least the skill's unscoped name and its agent-facing description. The name
 must match the last segment of the package materialized by the runtime.
