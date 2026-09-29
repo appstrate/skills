@@ -170,12 +170,18 @@ it to the draft with its companion files, binaries included, under the lock the 
 `publish` cuts the version. A new package is created by `push --create --space <space>`, and the
 space is its home: choose it before, since a package cannot later move into a personal space.
 
+**Workstations receive what is published.** `appstrate code sync`, run each session by the Appstrate
+plugin for Claude Code, writes the published version of every skill active in the spaces the profile
+belongs to into the coding agents' skill directories. Those are generated copies: never edit them,
+the next sync overwrites them. `appstrate code sync --source draft --target <agent>` writes the drafts
+instead, which is how a draft is tried on a workstation before anyone else receives it.
+
 **Through the API or the MCP**, the skill-creation operation and the draft-update operation accept
 file operations alongside the manifest: `references/` and `scripts/` travel with them. Discover the
 current contract of each before building the request.
 
 Creating a package publishes its first version at once. Pass the triggering check of step 6 before
-creating it.
+creating it, from the working folder placed in a coding agent's skill directory.
 
 Declare in the manifest's skill dependencies every other skill this package relies on: one its
 method tells the agent to load, and one whose files its scripts read or import. The declaration is
@@ -205,7 +211,9 @@ Write two realistic requests that should select the skill and one near-miss that
 without requesting the same method. Keep all three in a `Triggering` section of the `SKILL.md` so they
 remain versioned with the artifact.
 
-In fresh conversations, verify that positive cases load the skill and the near-miss does not. If
+In fresh conversations, verify that positive cases load the skill and the near-miss does not. Before
+the package exists, test from the working folder placed in a coding agent's skill directory; once it
+exists, test the draft synced to the workstation (step 5). If
 selection is wrong, correct the descriptions. If selection is right but execution fails, correct the
 body.
 
@@ -237,6 +245,10 @@ Apply this loop before proposing publication of a change:
 5. **Decide.** Keep the draft only if it improves positive cases without triggering the near-miss or
    degrading an existing constraint.
 
+For a method that runs on a workstation, compare the same task in two fresh coding-agent sessions,
+one with the published version and one with the draft synced locally, or use the coding agent's
+skill-evaluation tooling when it has some.
+
 When no published version exists, compare a run without the new skill to the same run with the draft.
 A requested selection absent from the resolved snapshot is not proof.
 
@@ -259,6 +271,7 @@ Consider the draft ready to propose only when:
 - the venues are decided, and a method that runs in both keeps command names out of its rules;
 - every other skill the method loads or its scripts read is declared as a skill dependency;
 - two positive cases and one near-miss were tested in fresh contexts;
+- the draft was tried in every venue the method runs in;
 - for an improvement, the comparison changes only one dependency and resolved snapshots prove its
   selection;
 - every remaining line changes an agent decision or action.
