@@ -146,6 +146,13 @@ As soon as the package carries companion files — `references/`, `scripts/` —
 longer express it, and the package must be imported as an archive. Discover the current import
 operation and read its contract before building the request.
 
+Declare in the manifest's skill dependencies every other skill this package relies on: one its
+method tells the agent to load, and one whose files its scripts read or import. The declaration is
+what makes a dependent visible to anyone about to remove or break that skill, and a script that
+reaches a sibling skill's folder without it works on one machine and fails wherever the sibling
+was never installed. Pin a range the package was tested against, and when a script finds a sibling
+by its folder name, say so in the code: that name is the package's unscoped name.
+
 Pack with `scripts/afps-pack.sh SOURCE_DIR OUTPUT.afps`. It requires `manifest.json` at the root of
 the source directory and stores every file flat at the archive root, preserving subdirectories. **A
 wrapping directory inside the archive makes the import fail**, which is the failure this script
@@ -211,6 +218,7 @@ Consider the draft ready to propose only when:
 - prerequisites are semantic needs with a fallback;
 - a batched or long-running method keeps its progress state outside the conversation;
 - companion files, when present, reached the stored package through an archive import;
+- every other skill the method loads or its scripts read is declared as a skill dependency;
 - two positive cases and one near-miss were tested in fresh contexts;
 - for an improvement, the comparison changes only one dependency and resolved snapshots prove its
   selection;
