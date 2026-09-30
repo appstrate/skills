@@ -34,8 +34,8 @@ Identify your context first: the tools differ, and so does how a draft is tried.
 | --- | --- | --- |
 | Write | the skill-creation and draft-update operations through the MCP, companion files as file operations; or a run builds an archive, validated then imported with the package-file tools | a CLI working folder: `appstrate packages pull`, `status`, `push`, `publish`; a new package with `push --create --space <space>` |
 | Read | the skill and its files through the MCP | the working folder |
-| Try the draft | pin the skill in a conversation: a pinned skill is served as its draft to whoever may write it; run an agent's draft | copy the skill's folder into the coding agent's skill directory for one session, then remove it; in a personal space, publishing is the trial, since the version reaches only its author |
-| Test triggering | a fresh conversation that pins nothing, where the chat chooses among the space's skills by their descriptions | a fresh session with the working folder, or the synced draft, in the coding agent's skill directory |
+| Try the draft | pin the skill in a conversation: a pinned skill is served as its draft to whoever may write it; run an agent's draft | load the working folder as it is, before any push: `claude --plugin-dir <folder>` exposes the skill as `<folder>:<name>` for the session; when the published version is installed too, the session holds both, so invoke the draft by its full name |
+| Test triggering | a fresh conversation that pins nothing, where the chat chooses among the space's skills by their descriptions | a fresh session with `claude --plugin-dir <folder>` and the published copy hidden (plugin disabled, or a synced copy moved out of the skill directory) |
 | Cannot | reach a workstation's tools, tokens or folders | nothing specific |
 
 This is independent from where the method later runs (step 2): a skill authored in the chat can
@@ -206,9 +206,8 @@ owner only, and nothing can move into one later.
 **Workstations receive what is published.** `appstrate code sync`, run each session by the Appstrate
 plugin for Claude Code, writes the published version of every skill active in the spaces the profile
 belongs to into the coding agents' skill directories. Those are generated copies: never edit them,
-the next sync overwrites them. **Never try one skill with `appstrate code sync --source draft`**: it
-writes the drafts of every skill, not the one under test, and a target that mirrors a skill directory
-deletes whatever there is not on Appstrate. A Claude Code
+the next sync overwrites them. `appstrate code sync --source draft` is not how one skill is tried: it
+swaps every synced skill for its draft. A Claude Code
 plugin keeps the command the user accepted: when the CLI renames its sync command, workstations stop
 updating without a visible error until the user runs `claude plugin update <plugin>` in a terminal and
 accepts the new one.
@@ -218,7 +217,7 @@ file operations alongside the manifest: `references/` and `scripts/` travel with
 current contract of each before building the request.
 
 Creating a package publishes its first version at once. From a coding agent, pass the triggering
-check of step 6 before creating it, from the working folder placed in its skill directory.
+check of step 6 before creating it, from the working folder loaded with `claude --plugin-dir`.
 
 Declare in the manifest's skill dependencies every other skill this package relies on: one its
 method tells the agent to load, and one whose files its scripts read or import. The declaration is
