@@ -34,7 +34,7 @@ Identify your context first: the tools differ, and so does how a draft is tried.
 | --- | --- | --- |
 | Write | the skill-creation and draft-update operations through the MCP, companion files as file operations; or a run builds an archive, validated then imported with the package-file tools | a CLI working folder: `appstrate packages pull`, `status`, `push`, `publish`; a new package with `push --create --space <space>` |
 | Read | the skill and its files through the MCP | the working folder |
-| Try the draft | pin the skill in a conversation: a pinned skill is served as its draft to whoever may write it; run an agent's draft | `appstrate code sync --source draft --target <agent>` writes the drafts into the coding agent's skill directory |
+| Try the draft | pin the skill in a conversation: a pinned skill is served as its draft to whoever may write it; run an agent's draft | copy the skill's folder into the coding agent's skill directory for one session, then remove it; in a personal space, publishing is the trial, since the version reaches only its author |
 | Test triggering | a fresh conversation that pins nothing, where the chat chooses among the space's skills by their descriptions | a fresh session with the working folder, or the synced draft, in the coding agent's skill directory |
 | Cannot | reach a workstation's tools, tokens or folders | nothing specific |
 
@@ -206,8 +206,9 @@ owner only, and nothing can move into one later.
 **Workstations receive what is published.** `appstrate code sync`, run each session by the Appstrate
 plugin for Claude Code, writes the published version of every skill active in the spaces the profile
 belongs to into the coding agents' skill directories. Those are generated copies: never edit them,
-the next sync overwrites them. `appstrate code sync --source draft --target <agent>` writes the drafts
-instead, which is how a draft is tried on a workstation before anyone else receives it. A Claude Code
+the next sync overwrites them. **Never try one skill with `appstrate code sync --source draft`**: it
+writes the drafts of every skill, not the one under test, and a target that mirrors a skill directory
+deletes whatever there is not on Appstrate. A Claude Code
 plugin keeps the command the user accepted: when the CLI renames its sync command, workstations stop
 updating without a visible error until the user runs `claude plugin update <plugin>` in a terminal and
 accepts the new one.
